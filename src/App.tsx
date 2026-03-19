@@ -305,18 +305,18 @@ function GateScene({ isTransitioning }: { isTransitioning: boolean }) {
         textRef.current.rotation.y = currentRotation.current.y;
       }
     } else {
-      // Suck-in effect
-      state.camera.position.z = THREE.MathUtils.damp(state.camera.position.z, -5, 4, delta);
+      // Small suck-in effect
+      state.camera.position.z = THREE.MathUtils.damp(state.camera.position.z, 8, 4, delta);
       const camera = state.camera as THREE.PerspectiveCamera;
-      camera.fov = THREE.MathUtils.damp(camera.fov, 150, 4, delta);
+      camera.fov = THREE.MathUtils.damp(camera.fov, 80, 4, delta);
       camera.updateProjectionMatrix();
       
       if (textRef.current) {
-        // Stretch text on Z axis to simulate motion blur / hyperspace
-        textRef.current.scale.z = THREE.MathUtils.damp(textRef.current.scale.z, 20, 4, delta);
+        // Slight stretch on Z axis
+        textRef.current.scale.z = THREE.MathUtils.damp(textRef.current.scale.z, 3, 4, delta);
       }
       if (starsRef.current) {
-        starsRef.current.position.z = THREE.MathUtils.damp(starsRef.current.position.z, 20, 4, delta);
+        starsRef.current.position.z = THREE.MathUtils.damp(starsRef.current.position.z, 5, 4, delta);
       }
     }
   });
@@ -624,10 +624,13 @@ function ProfileUI() {
   );
 }
 
+const PROFILE_FADE_IN_TIME = 3; // Configurable time in seconds before profile fades in
+
 export default function App() {
   const [stage, setStage] = useState<'gate' | 'transition' | 'profile'>('gate');
   const videoRef = useRef<HTMLVideoElement>(null);
   const [showUI, setShowUI] = useState(false);
+  const [videoEnded, setVideoEnded] = useState(false);
 
   const handleGateClick = () => {
     if (stage !== 'gate') return;
@@ -648,30 +651,31 @@ export default function App() {
   };
 
   const handleTimeUpdate = () => {
-    if (videoRef.current && videoRef.current.currentTime > 1) {
+    if (videoRef.current && videoRef.current.currentTime > PROFILE_FADE_IN_TIME) {
       setShowUI(true);
     }
+  };
+
+  const handleVideoEnded = () => {
+    setVideoEnded(true);
   };
 
   return (
     <>
       {/* Background Video */}
-      <div className={`fixed inset-0 z-0 transition-opacity duration-1000 ${stage !== 'gate' ? 'opacity-100' : 'opacity-0'}`}>
-        <video 
-          ref={videoRef}
-          src="https://expand-admitted-technology-recipient.trycloudflare.com/prof.mp4" 
-          className="w-full h-full object-cover"
-          muted
-          loop
-          playsInline
-          preload="auto"
-          onTimeUpdate={handleTimeUpdate}
-        />
-        <div className="absolute inset-0 bg-[#050505]/60 backdrop-blur-xl pointer-events-none" />
-        <div 
-          className="absolute inset-0 z-0 opacity-[0.03] pointer-events-none"
-          style={{ backgroundImage: `url('data:image/svg+xml,%3Csvg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"%3E%3Cfilter id="noiseFilter"%3E%3CfeTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" stitchTiles="stitch"/%3E%3C/filter%3E%3Crect width="100%25" height="100%25" filter="url(%23noiseFilter)"/%3E%3C/svg%3E')` }}
-        />
+      <div className={`fixed inset-0 z-0 transition-opacity duration-1000 bg-black ${stage !== 'gate' ? 'opacity-100' : 'opacity-0'}`}>
+        {!videoEnded && (
+          <video 
+            ref={videoRef}
+            src="https://cdn.jsdelivr.net/gh/angel2rider/profile@main/main.mp4" 
+            className="w-full h-full object-cover"
+            muted
+            playsInline
+            preload="auto"
+            onTimeUpdate={handleTimeUpdate}
+            onEnded={handleVideoEnded}
+          />
+        )}
       </div>
 
       {/* 3D Gate */}
