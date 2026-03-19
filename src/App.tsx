@@ -409,7 +409,7 @@ function ProfileUI({ showUI }: { showUI: boolean }) {
 
   return (
     <div 
-      className="min-h-screen flex flex-col items-center justify-center p-6 relative overflow-hidden"
+      className="min-h-full h-full flex flex-col items-center justify-center p-6 relative overflow-hidden"
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
       style={{ perspective: 1000 }}
@@ -639,15 +639,46 @@ const PROFILE_FADE_IN_TIME = 18; // Configurable time in seconds before profile 
 export default function App() {
   const [stage, setStage] = useState<'gate' | 'transition' | 'profile'>('gate');
   const videoRef = useRef<HTMLVideoElement>(null);
+  const glowCanvasRef = useRef<HTMLCanvasElement>(null);
   const [showUI, setShowUI] = useState(false);
   const [videoEnded, setVideoEnded] = useState(false);
+  const [showGreatnessText, setShowGreatnessText] = useState(false);
+
+  useEffect(() => {
+    let intervalId: NodeJS.Timeout;
+
+    const updateGlow = () => {
+      if (videoRef.current && glowCanvasRef.current && !videoRef.current.paused && !videoRef.current.ended) {
+        const ctx = glowCanvasRef.current.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(videoRef.current, 0, 0, 64, 64);
+        }
+      }
+    };
+
+    // ~15 updates per second
+    intervalId = setInterval(updateGlow, 66);
+
+    return () => clearInterval(intervalId);
+  }, []);
 
   const handleGateClick = () => {
     if (stage !== 'gate') return;
     setStage('transition');
+    setShowGreatnessText(true);
     
-    if (document.documentElement.requestFullscreen) {
-      document.documentElement.requestFullscreen().catch(e => console.error("Fullscreen failed:", e));
+    // Robust fullscreen request with vendor prefixes
+    const docEl = document.documentElement as any;
+    try {
+      if (docEl.requestFullscreen) {
+        docEl.requestFullscreen().catch((e: any) => console.error("Fullscreen failed:", e));
+      } else if (docEl.webkitRequestFullscreen) {
+        docEl.webkitRequestFullscreen();
+      } else if (docEl.msRequestFullscreen) {
+        docEl.msRequestFullscreen();
+      }
+    } catch (err) {
+      console.error("Fullscreen API error:", err);
     }
 
     if (videoRef.current) {
@@ -659,6 +690,10 @@ export default function App() {
     setTimeout(() => {
       setStage('profile');
     }, 1500);
+
+    setTimeout(() => {
+      setShowGreatnessText(false);
+    }, 6000);
   };
 
   const handleTimeUpdate = () => {
@@ -672,81 +707,109 @@ export default function App() {
   };
 
   return (
-    <>
-      {/* Background Video */}
-      <div className={`fixed inset-0 z-0 transition-opacity duration-1000 bg-black ${stage !== 'gate' ? 'opacity-100' : 'opacity-[0.01]'}`}>
-        {!videoEnded && (
-          <video 
-            ref={videoRef}
-            src="/main.mp4" 
-            className="w-full h-full object-cover"
-            muted
-            playsInline
-            preload="auto"
-            onTimeUpdate={handleTimeUpdate}
-            onEnded={handleVideoEnded}
-          />
-        )}
-        {/* Pixelated Filter Overlay */}
-        <div 
-          className="absolute inset-0 pointer-events-none z-10"
-          style={{
-            backgroundImage: 'linear-gradient(transparent 50%, rgba(0, 0, 0, 0.15) 50%), linear-gradient(90deg, transparent 50%, rgba(0, 0, 0, 0.15) 50%)',
-            backgroundSize: '3px 3px'
-          }}
-        />
-      </div>
+    <div className="fixed inset-0 bg-[#050505] p-3 sm:p-6 md:p-8 flex items-center justify-center overflow-hidden">
+      {/* Ambient Glow Canvas */}
+      <canvas
+        ref={glowCanvasRef}
+        width={64}
+        height={64}
+        className="absolute inset-0 w-full h-full object-cover blur-[60px] sm:blur-[100px] opacity-60 scale-110 transition-opacity duration-1000"
+      />
 
-      {/* 3D Gate */}
-      <AnimatePresence>
-        {stage !== 'profile' && (
-          <motion.div 
-            className="fixed inset-0 z-50 cursor-pointer flex items-center justify-center"
-            onClick={handleGateClick}
-            initial={{ backgroundColor: 'rgba(0,0,0,1)' }}
-            animate={{ backgroundColor: stage === 'transition' ? 'rgba(0,0,0,0)' : 'rgba(0,0,0,1)' }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: stage === 'transition' ? 1.5 : 0.5 }}
-          >
-            <Canvas camera={{ position: [0, 0, 10], fov: 50 }}>
-              <ambientLight intensity={0.5} />
-              <pointLight position={[10, 10, 10]} intensity={1} />
-              <Suspense fallback={null}>
-                <GateScene isTransitioning={stage === 'transition'} />
-              </Suspense>
-            </Canvas>
-            
-            {/* Vignette overlay during transition */}
-            <motion.div 
-              className="absolute inset-0 pointer-events-none"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: stage === 'transition' ? 1 : 0 }}
-              style={{
-                background: 'radial-gradient(circle, transparent 20%, rgba(0,0,0,1) 100%)'
-              }}
+      {/* Main Frame */}
+      <div className="relative w-full h-full rounded-[2rem] sm:rounded-[2.5rem] overflow-hidden bg-black z-10 shadow-2xl border border-white/10">
+        
+        {/* Background Video */}
+        <div className={`absolute inset-0 z-0 transition-opacity duration-1000 bg-black ${stage !== 'gate' ? 'opacity-100' : 'opacity-[0.01]'}`}>
+          {!videoEnded && (
+            <video 
+              ref={videoRef}
+              src="/main.mp4" 
+              className="w-full h-full object-cover"
+              muted
+              playsInline
+              preload="auto"
+              onTimeUpdate={handleTimeUpdate}
+              onEnded={handleVideoEnded}
             />
-            
-            {stage === 'gate' && (
-              <motion.div 
-                className="absolute bottom-10 text-white/50 text-sm tracking-widest uppercase font-medium"
-                animate={{ opacity: [0.3, 1, 0.3] }}
-                transition={{ duration: 2, repeat: Infinity }}
-              >
-                Click to Enter
-              </motion.div>
-            )}
-          </motion.div>
-        )}
-      </AnimatePresence>
+          )}
+          {/* Pixelated Filter Overlay */}
+          <div 
+            className="absolute inset-0 pointer-events-none z-10"
+            style={{
+              backgroundImage: 'linear-gradient(transparent 50%, rgba(0, 0, 0, 0.15) 50%), linear-gradient(90deg, transparent 50%, rgba(0, 0, 0, 0.15) 50%)',
+              backgroundSize: '3px 3px'
+            }}
+          />
+        </div>
 
-      {/* Main Profile UI (Preloaded invisibly) */}
-      <div 
-        className="fixed inset-0 z-10 overflow-y-auto overflow-x-hidden flex flex-col"
-        style={{ pointerEvents: (stage === 'profile' && showUI) ? 'auto' : 'none' }}
-      >
-        <ProfileUI showUI={stage === 'profile' && showUI} />
+        {/* 3D Gate */}
+        <AnimatePresence>
+          {stage !== 'profile' && (
+            <motion.div 
+              className="absolute inset-0 z-50 cursor-pointer flex items-center justify-center"
+              onClick={handleGateClick}
+              initial={{ backgroundColor: 'rgba(0,0,0,1)' }}
+              animate={{ backgroundColor: stage === 'transition' ? 'rgba(0,0,0,0)' : 'rgba(0,0,0,1)' }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: stage === 'transition' ? 1.5 : 0.5 }}
+            >
+              <Canvas camera={{ position: [0, 0, 10], fov: 50 }}>
+                <ambientLight intensity={0.5} />
+                <pointLight position={[10, 10, 10]} intensity={1} />
+                <Suspense fallback={null}>
+                  <GateScene isTransitioning={stage === 'transition'} />
+                </Suspense>
+              </Canvas>
+              
+              {/* Vignette overlay during transition */}
+              <motion.div 
+                className="absolute inset-0 pointer-events-none"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: stage === 'transition' ? 1 : 0 }}
+                style={{
+                  background: 'radial-gradient(circle, transparent 20%, rgba(0,0,0,1) 100%)'
+                }}
+              />
+              
+              {stage === 'gate' && (
+                <motion.div 
+                  className="absolute bottom-10 text-white/50 text-sm tracking-widest uppercase font-medium"
+                  animate={{ opacity: [0.3, 1, 0.3] }}
+                  transition={{ duration: 2, repeat: Infinity }}
+                >
+                  Click to Enter
+                </motion.div>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Greatness Ahead Text */}
+        <AnimatePresence>
+          {showGreatnessText && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 10 }}
+              transition={{ duration: 1 }}
+              className="absolute bottom-12 left-1/2 -translate-x-1/2 z-20 text-white/70 text-[11px] tracking-[0.3em] uppercase font-bold pointer-events-none"
+              style={{ textShadow: '0 2px 10px rgba(0,0,0,0.8)' }}
+            >
+              Greatness Lies Ahead...
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Main Profile UI (Preloaded invisibly) */}
+        <div 
+          className="absolute inset-0 z-10 overflow-y-auto overflow-x-hidden flex flex-col"
+          style={{ pointerEvents: (stage === 'profile' && showUI) ? 'auto' : 'none' }}
+        >
+          <ProfileUI showUI={stage === 'profile' && showUI} />
+        </div>
       </div>
-    </>
+    </div>
   );
 }
 
