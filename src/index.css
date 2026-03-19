@@ -7,6 +7,6 @@
 
 @layer base {
   body {
-    @apply bg-[#050505] text-white antialiased selection:bg-white/20;
+    @apply bg-[#050505] text-white antialiased selection:bg-white/20 overflow-hidden;
   }
 }

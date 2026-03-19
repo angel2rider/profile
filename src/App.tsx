@@ -636,6 +636,10 @@ export default function App() {
     if (stage !== 'gate') return;
     setStage('transition');
     
+    if (document.documentElement.requestFullscreen) {
+      document.documentElement.requestFullscreen().catch(e => console.error("Fullscreen failed:", e));
+    }
+
     if (videoRef.current) {
       videoRef.current.currentTime = 0;
       videoRef.current.play().catch(e => console.error("Video play failed:", e));
@@ -671,6 +675,14 @@ export default function App() {
             onEnded={handleVideoEnded}
           />
         )}
+        {/* Pixelated Filter Overlay */}
+        <div 
+          className="absolute inset-0 pointer-events-none z-10"
+          style={{
+            backgroundImage: 'linear-gradient(transparent 50%, rgba(0, 0, 0, 0.15) 50%), linear-gradient(90deg, transparent 50%, rgba(0, 0, 0, 0.15) 50%)',
+            backgroundSize: '3px 3px'
+          }}
+        />
       </div>
 
       {/* 3D Gate */}
@@ -715,19 +727,19 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      {/* Main Profile UI */}
-      <AnimatePresence>
-        {stage === 'profile' && showUI && (
-          <motion.div 
-            className="relative z-10"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 1, ease: "easeOut" }}
-          >
-            <ProfileUI />
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Main Profile UI (Preloaded invisibly) */}
+      <motion.div 
+        className="fixed inset-0 z-10 overflow-y-auto overflow-x-hidden flex flex-col"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ 
+          opacity: (stage === 'profile' && showUI) ? 1 : 0, 
+          y: (stage === 'profile' && showUI) ? 0 : 20 
+        }}
+        transition={{ duration: 1, ease: "easeOut" }}
+        style={{ pointerEvents: (stage === 'profile' && showUI) ? 'auto' : 'none' }}
+      >
+        <ProfileUI />
+      </motion.div>
     </>
   );
 }
