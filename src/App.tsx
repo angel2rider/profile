@@ -183,7 +183,7 @@ function Dock({ children }: { children: React.ReactNode }) {
     <motion.div
       onMouseMove={(e) => mouseX.set(e.pageX)}
       onMouseLeave={() => mouseX.set(Infinity)}
-      className="flex items-end justify-center gap-3 h-16 px-4 pb-2.5 rounded-2xl bg-white/[0.02] border border-white/[0.05] shadow-[0_0_30px_rgba(0,0,0,0.5)] backdrop-blur-md"
+      className="flex items-end justify-center gap-3 h-16 px-4 pb-2.5 rounded-2xl bg-white/10 border border-white/20 shadow-[0_0_30px_rgba(0,0,0,0.3)] backdrop-blur-md"
     >
       {React.Children.map(children, (child) => {
         if (React.isValidElement(child)) {
@@ -213,7 +213,7 @@ function DockItem({ mouseX, href, icon: Icon }: { mouseX?: any, href: string, ic
       rel="noopener noreferrer"
       ref={ref}
       style={{ width, height: width }}
-      className="flex items-center justify-center rounded-2xl bg-white/[0.03] border border-white/[0.08] text-white/60 hover:text-white hover:bg-white/[0.08] transition-colors shadow-lg"
+      className="flex items-center justify-center rounded-2xl bg-white/10 border border-white/20 text-white/60 hover:text-white hover:bg-white/20 transition-colors shadow-lg"
     >
       <Icon className="w-1/2 h-1/2" />
     </motion.a>
@@ -450,7 +450,7 @@ function ProfileUI() {
         </div>
 
         {/* Discord Info Panel (Horizontal Card) */}
-        <div className="w-full max-w-[440px] p-4 rounded-[2rem] bg-[#111111]/80 border border-white/[0.05] shadow-2xl backdrop-blur-xl mb-12 flex items-center gap-4">
+        <div className="w-full max-w-[440px] p-4 rounded-[2rem] bg-white/10 border border-white/20 shadow-2xl backdrop-blur-xl mb-12 flex items-center gap-4">
           
           {/* Avatar & Status */}
           <div className="relative w-[72px] h-[72px] shrink-0">
@@ -641,6 +641,7 @@ export default function App() {
     }
 
     if (videoRef.current) {
+      videoRef.current.muted = false;
       videoRef.current.currentTime = 0;
       videoRef.current.play().catch(e => console.error("Video play failed:", e));
     }
@@ -663,12 +664,13 @@ export default function App() {
   return (
     <>
       {/* Background Video */}
-      <div className={`fixed inset-0 z-0 transition-opacity duration-1000 bg-black ${stage !== 'gate' ? 'opacity-100' : 'opacity-0'}`}>
+      <div className={`fixed inset-0 z-0 transition-opacity duration-1000 bg-black ${stage !== 'gate' ? 'opacity-100' : 'opacity-[0.01]'}`}>
         {!videoEnded && (
           <video 
             ref={videoRef}
-            src="https://cdn.jsdelivr.net/gh/angel2rider/profile@main/main.mp4" 
+            src="/main.mp4" 
             className="w-full h-full object-cover"
+            muted
             playsInline
             preload="auto"
             onTimeUpdate={handleTimeUpdate}
