@@ -445,15 +445,6 @@ function ProfileUI({ showUI }: { showUI: boolean }) {
           </motion.div>
         </div>
 
-        {/* macOS Dock Social Links (Moved up in animation priority) */}
-        <motion.div className="mb-12" {...getAnimProps(0.2)}>
-          <Dock>
-            {SOCIAL_LINKS.map((link) => (
-              <DockItem key={link.id} href={link.url} icon={link.icon} />
-            ))}
-          </Dock>
-        </motion.div>
-
         <motion.div className="flex flex-col items-center w-full" {...getAnimProps(0.3)}>
           {/* Divider */}
           <div className="w-12 h-px bg-white/10 mb-6" />
@@ -624,6 +615,15 @@ function ProfileUI({ showUI }: { showUI: boolean }) {
           </div>
         </motion.div>
 
+        {/* macOS Dock Social Links */}
+        <motion.div className="mb-16" {...getAnimProps(0.2)}>
+          <Dock>
+            {SOCIAL_LINKS.map((link) => (
+              <DockItem key={link.id} href={link.url} icon={link.icon} />
+            ))}
+          </Dock>
+        </motion.div>
+
         {/* Footer */}
         <motion.footer className="text-[10px] font-medium tracking-widest uppercase text-white/20" {...getAnimProps(0.4)}>
           © TheGT
@@ -749,3 +749,4 @@ export default function App() {
     </>
   );
 }
+
