@@ -357,7 +357,7 @@ function GateScene({ isTransitioning }: { isTransitioning: boolean }) {
 }
 
 // --- Main App ---
-function ProfileUI() {
+function ProfileUI({ showUI }: { showUI: boolean }) {
   const lanyard = useLanyard('1091039253988905110');
 
   const mouseX = useMotionValue(0);
@@ -401,6 +401,12 @@ function ProfileUI() {
   const customStatus = lanyard?.activities?.find(a => a.type === 4);
   const activity = lanyard?.activities?.find(a => a.type !== 4);
 
+  const getAnimProps = (delay: number) => ({
+    initial: { opacity: 0, y: 20 },
+    animate: { opacity: showUI ? 1 : 0, y: showUI ? 0 : 20 },
+    transition: { duration: 0.5, delay: showUI ? delay : 0, ease: "easeOut" }
+  });
+
   return (
     <div 
       className="min-h-screen flex flex-col items-center justify-center p-6 relative overflow-hidden"
@@ -414,8 +420,8 @@ function ProfileUI() {
       >
         
         {/* Profile Header */}
-        <div className="flex flex-col items-center mb-6">
-          <div className="relative w-28 h-28 mb-4">
+        <div className="flex flex-col items-center mb-6 w-full">
+          <motion.div className="relative w-28 h-28 mb-4" {...getAnimProps(0)}>
             <img
               src={avatarUrl}
               alt="Profile"
@@ -430,194 +436,198 @@ function ProfileUI() {
                 referrerPolicy="no-referrer"
               />
             )}
-          </div>
-          <h1 className="text-3xl font-bold text-white tracking-tight mb-2">
-            {lanyard?.discord_user.global_name || lanyard?.discord_user.display_name || lanyard?.discord_user.username || 'TheGT'}
-          </h1>
-          <RotatingQuote />
+          </motion.div>
+          <motion.div className="flex flex-col items-center w-full" {...getAnimProps(0.1)}>
+            <h1 className="text-3xl font-bold text-white tracking-tight mb-2">
+              {lanyard?.discord_user.global_name || lanyard?.discord_user.display_name || lanyard?.discord_user.username || 'TheGT'}
+            </h1>
+            <RotatingQuote />
+          </motion.div>
         </div>
 
-        {/* Divider */}
-        <div className="w-12 h-px bg-white/10 mb-6" />
-
-        {/* Location Row */}
-        <div className="flex items-center gap-1.5 text-white/40 mb-8">
-          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-            <circle cx="12" cy="10" r="3" />
-          </svg>
-          <span className="text-[11px] font-bold tracking-widest uppercase">TVM, KERALA</span>
-        </div>
-
-        {/* Discord Info Panel (Horizontal Card) */}
-        <div className="w-full max-w-[440px] p-4 rounded-[2rem] bg-white/10 border border-white/20 shadow-2xl backdrop-blur-xl mb-12 flex items-center gap-4">
-          
-          {/* Avatar & Status */}
-          <div className="relative w-[72px] h-[72px] shrink-0">
-            <img
-              src={avatarUrl}
-              alt="Profile"
-              className="w-full h-full rounded-full object-cover"
-              referrerPolicy="no-referrer"
-            />
-            {decorationUrl && (
-              <img
-                src={decorationUrl}
-                alt="Decoration"
-                className="absolute -top-[10%] -left-[10%] w-[120%] h-[120%] max-w-none pointer-events-none"
-                referrerPolicy="no-referrer"
-              />
-            )}
-            {/* Status Dot */}
-            <div 
-              className="absolute bottom-0 right-0 w-5 h-5 rounded-full border-[3px] border-[#111111]"
-              style={{ backgroundColor: statusColor }}
-            />
-          </div>
-
-          {/* User Info */}
-          <div className="flex flex-col justify-center text-left overflow-hidden w-full">
-            <div className="flex items-center gap-2 mb-1.5 w-full min-w-0">
-              <h1 className="text-xl font-bold tracking-tight text-white truncate min-w-0">
-                {lanyard?.discord_user.global_name || lanyard?.discord_user.display_name || 'TheGT'}
-              </h1>
-              <span className="text-sm font-medium text-white/40 truncate min-w-0">
-                {lanyard?.discord_user.username || 'thegt2angel'}
-              </span>
-              
-              {/* Badges */}
-              <div className="flex items-center gap-1.5 ml-auto shrink-0">
-                {/* Server Tag Badge */}
-                {lanyard?.discord_user.primary_guild?.identity_enabled && (
-                  <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-white/[0.06] border border-white/[0.02]">
-                    {lanyard.discord_user.primary_guild.badge && (
-                      <img 
-                        src={`https://cdn.discordapp.com/guild-tag-badges/${lanyard.discord_user.primary_guild.identity_guild_id}/${lanyard.discord_user.primary_guild.badge}.png`}
-                        alt="Guild Badge"
-                        className="w-3.5 h-3.5 object-contain"
-                        referrerPolicy="no-referrer"
-                      />
-                    )}
-                    <span className="text-[10px] font-semibold text-white/80 tracking-wide">
-                      {lanyard.discord_user.primary_guild.tag}
-                    </span>
-                  </div>
-                )}
-                
-                {/* Discord Badges from public_flags */}
-                {Object.entries(DISCORD_BADGES).map(([flag, badge]) => {
-                  if (((lanyard?.discord_user.public_flags ?? 0) & Number(flag)) !== 0) {
-                    return (
-                      <img
-                        key={flag}
-                        src={`https://cdn.discordapp.com/badge-icons/${badge.hash}.png`}
-                        alt={badge.name}
-                        title={badge.name}
-                        className="w-5 h-5 object-contain"
-                        referrerPolicy="no-referrer"
-                      />
-                    );
-                  }
-                  return null;
-                })}
-              </div>
-            </div>
-
-            {/* Status / Activity */}
-            <div className="flex flex-col gap-1">
-              {lanyard?.listening_to_spotify && lanyard.spotify ? (
-                <div className="flex items-center gap-3 mt-1">
-                  <div className="relative w-10 h-10 shrink-0 rounded-lg overflow-hidden bg-white/10">
-                    <img 
-                      src={lanyard.spotify.album_art_url}
-                      alt={lanyard.spotify.album}
-                      className="w-full h-full object-cover"
-                      referrerPolicy="no-referrer"
-                    />
-                  </div>
-                  <div className="flex flex-col overflow-hidden">
-                    <span className="text-[12px] font-bold text-white truncate">
-                      Listening to Spotify
-                    </span>
-                    <span className="text-[11px] text-white/60 truncate">{lanyard.spotify.song}</span>
-                    <span className="text-[11px] text-white/60 truncate">by {lanyard.spotify.artist}</span>
-                  </div>
-                </div>
-              ) : activity ? (
-                <div className="flex items-center gap-3 mt-1">
-                  {/* Activity Image */}
-                  {activity.assets?.large_image && (
-                    <div className="relative w-10 h-10 shrink-0 rounded-lg overflow-hidden bg-white/10">
-                      <img 
-                        src={activity.assets.large_image.startsWith('mp:external/') 
-                          ? `https://media.discordapp.net/external/${activity.assets.large_image.replace('mp:external/', '')}`
-                          : `https://cdn.discordapp.com/app-assets/${activity.application_id}/${activity.assets.large_image}.png`}
-                        alt={activity.name}
-                        className="w-full h-full object-cover"
-                        referrerPolicy="no-referrer"
-                      />
-                      {activity.assets.small_image && (
-                        <img 
-                          src={activity.assets.small_image.startsWith('mp:external/') 
-                            ? `https://media.discordapp.net/external/${activity.assets.small_image.replace('mp:external/', '')}`
-                            : `https://cdn.discordapp.com/app-assets/${activity.application_id}/${activity.assets.small_image}.png`}
-                          alt="small asset"
-                          className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-[#111111] bg-[#111111]"
-                          referrerPolicy="no-referrer"
-                        />
-                      )}
-                    </div>
-                  )}
-                  
-                  {/* Activity Text */}
-                  <div className="flex flex-col overflow-hidden">
-                    <span className="text-[12px] font-bold text-white truncate">
-                      {activity.type === 0 ? 'Playing ' : activity.type === 2 ? 'Listening to ' : activity.type === 3 ? 'Watching ' : ''}
-                      {activity.name}
-                    </span>
-                    {activity.details && (
-                      <span className="text-[11px] text-white/60 truncate">{activity.details}</span>
-                    )}
-                    {activity.state && (
-                      <span className="text-[11px] text-white/60 truncate">{activity.state}</span>
-                    )}
-                  </div>
-                </div>
-              ) : customStatus ? (
-                <p className="text-[13px] font-medium text-[#a0a0a0] truncate flex items-center gap-1.5">
-                  {customStatus.emoji?.id ? (
-                    <img 
-                      src={`https://cdn.discordapp.com/emojis/${customStatus.emoji.id}.${customStatus.emoji.animated ? 'gif' : 'png'}?size=16`} 
-                      alt="emoji" 
-                      className="w-4 h-4 inline-block shrink-0"
-                    />
-                  ) : customStatus.emoji?.name ? (
-                    <span className="shrink-0">{customStatus.emoji.name}</span>
-                  ) : null}
-                  <span className="truncate">{customStatus.state}</span>
-                </p>
-              ) : (
-                <p className="text-[13px] font-medium text-[#a0a0a0] truncate flex items-center gap-1.5">
-                  <span className="truncate">{getStatusText(lanyard)}</span>
-                </p>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* macOS Dock Social Links */}
-        <div className="mb-16">
+        {/* macOS Dock Social Links (Moved up in animation priority) */}
+        <motion.div className="mb-12" {...getAnimProps(0.2)}>
           <Dock>
             {SOCIAL_LINKS.map((link) => (
               <DockItem key={link.id} href={link.url} icon={link.icon} />
             ))}
           </Dock>
-        </div>
+        </motion.div>
+
+        <motion.div className="flex flex-col items-center w-full" {...getAnimProps(0.3)}>
+          {/* Divider */}
+          <div className="w-12 h-px bg-white/10 mb-6" />
+
+          {/* Location Row */}
+          <div className="flex items-center gap-1.5 text-white/40 mb-8">
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+              <circle cx="12" cy="10" r="3" />
+            </svg>
+            <span className="text-[11px] font-bold tracking-widest uppercase">TVM, KERALA</span>
+          </div>
+
+          {/* Discord Info Panel (Horizontal Card) */}
+          <div className="w-full max-w-[440px] p-4 rounded-[2rem] bg-white/10 border border-white/20 shadow-2xl backdrop-blur-xl mb-12 flex items-center gap-4">
+            
+            {/* Avatar & Status */}
+            <div className="relative w-[72px] h-[72px] shrink-0">
+              <img
+                src={avatarUrl}
+                alt="Profile"
+                className="w-full h-full rounded-full object-cover"
+                referrerPolicy="no-referrer"
+              />
+              {decorationUrl && (
+                <img
+                  src={decorationUrl}
+                  alt="Decoration"
+                  className="absolute -top-[10%] -left-[10%] w-[120%] h-[120%] max-w-none pointer-events-none"
+                  referrerPolicy="no-referrer"
+                />
+              )}
+              {/* Status Dot */}
+              <div 
+                className="absolute bottom-0 right-0 w-5 h-5 rounded-full border-[3px] border-[#111111]"
+                style={{ backgroundColor: statusColor }}
+              />
+            </div>
+
+            {/* User Info */}
+            <div className="flex flex-col justify-center text-left overflow-hidden w-full">
+              <div className="flex items-center gap-2 mb-1.5 w-full min-w-0">
+                <h1 className="text-xl font-bold tracking-tight text-white truncate min-w-0">
+                  {lanyard?.discord_user.global_name || lanyard?.discord_user.display_name || 'TheGT'}
+                </h1>
+                <span className="text-sm font-medium text-white/40 truncate min-w-0">
+                  {lanyard?.discord_user.username || 'thegt2angel'}
+                </span>
+                
+                {/* Badges */}
+                <div className="flex items-center gap-1.5 ml-auto shrink-0">
+                  {/* Server Tag Badge */}
+                  {lanyard?.discord_user.primary_guild?.identity_enabled && (
+                    <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-white/[0.06] border border-white/[0.02]">
+                      {lanyard.discord_user.primary_guild.badge && (
+                        <img 
+                          src={`https://cdn.discordapp.com/guild-tag-badges/${lanyard.discord_user.primary_guild.identity_guild_id}/${lanyard.discord_user.primary_guild.badge}.png`}
+                          alt="Guild Badge"
+                          className="w-3.5 h-3.5 object-contain"
+                          referrerPolicy="no-referrer"
+                        />
+                      )}
+                      <span className="text-[10px] font-semibold text-white/80 tracking-wide">
+                        {lanyard.discord_user.primary_guild.tag}
+                      </span>
+                    </div>
+                  )}
+                  
+                  {/* Discord Badges from public_flags */}
+                  {Object.entries(DISCORD_BADGES).map(([flag, badge]) => {
+                    if (((lanyard?.discord_user.public_flags ?? 0) & Number(flag)) !== 0) {
+                      return (
+                        <img
+                          key={flag}
+                          src={`https://cdn.discordapp.com/badge-icons/${badge.hash}.png`}
+                          alt={badge.name}
+                          title={badge.name}
+                          className="w-5 h-5 object-contain"
+                          referrerPolicy="no-referrer"
+                        />
+                      );
+                    }
+                    return null;
+                  })}
+                </div>
+              </div>
+
+              {/* Status / Activity */}
+              <div className="flex flex-col gap-1">
+                {lanyard?.listening_to_spotify && lanyard.spotify ? (
+                  <div className="flex items-center gap-3 mt-1">
+                    <div className="relative w-10 h-10 shrink-0 rounded-lg overflow-hidden bg-white/10">
+                      <img 
+                        src={lanyard.spotify.album_art_url}
+                        alt={lanyard.spotify.album}
+                        className="w-full h-full object-cover"
+                        referrerPolicy="no-referrer"
+                      />
+                    </div>
+                    <div className="flex flex-col overflow-hidden">
+                      <span className="text-[12px] font-bold text-white truncate">
+                        Listening to Spotify
+                      </span>
+                      <span className="text-[11px] text-white/60 truncate">{lanyard.spotify.song}</span>
+                      <span className="text-[11px] text-white/60 truncate">by {lanyard.spotify.artist}</span>
+                    </div>
+                  </div>
+                ) : activity ? (
+                  <div className="flex items-center gap-3 mt-1">
+                    {/* Activity Image */}
+                    {activity.assets?.large_image && (
+                      <div className="relative w-10 h-10 shrink-0 rounded-lg overflow-hidden bg-white/10">
+                        <img 
+                          src={activity.assets.large_image.startsWith('mp:external/') 
+                            ? `https://media.discordapp.net/external/${activity.assets.large_image.replace('mp:external/', '')}`
+                            : `https://cdn.discordapp.com/app-assets/${activity.application_id}/${activity.assets.large_image}.png`}
+                          alt={activity.name}
+                          className="w-full h-full object-cover"
+                          referrerPolicy="no-referrer"
+                        />
+                        {activity.assets.small_image && (
+                          <img 
+                            src={activity.assets.small_image.startsWith('mp:external/') 
+                              ? `https://media.discordapp.net/external/${activity.assets.small_image.replace('mp:external/', '')}`
+                              : `https://cdn.discordapp.com/app-assets/${activity.application_id}/${activity.assets.small_image}.png`}
+                            alt="small asset"
+                            className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-[#111111] bg-[#111111]"
+                            referrerPolicy="no-referrer"
+                          />
+                        )}
+                      </div>
+                    )}
+                    
+                    {/* Activity Text */}
+                    <div className="flex flex-col overflow-hidden">
+                      <span className="text-[12px] font-bold text-white truncate">
+                        {activity.type === 0 ? 'Playing ' : activity.type === 2 ? 'Listening to ' : activity.type === 3 ? 'Watching ' : ''}
+                        {activity.name}
+                      </span>
+                      {activity.details && (
+                        <span className="text-[11px] text-white/60 truncate">{activity.details}</span>
+                      )}
+                      {activity.state && (
+                        <span className="text-[11px] text-white/60 truncate">{activity.state}</span>
+                      )}
+                    </div>
+                  </div>
+                ) : customStatus ? (
+                  <p className="text-[13px] font-medium text-[#a0a0a0] truncate flex items-center gap-1.5">
+                    {customStatus.emoji?.id ? (
+                      <img 
+                        src={`https://cdn.discordapp.com/emojis/${customStatus.emoji.id}.${customStatus.emoji.animated ? 'gif' : 'png'}?size=16`} 
+                        alt="emoji" 
+                        className="w-4 h-4 inline-block shrink-0"
+                      />
+                    ) : customStatus.emoji?.name ? (
+                      <span className="shrink-0">{customStatus.emoji.name}</span>
+                    ) : null}
+                    <span className="truncate">{customStatus.state}</span>
+                  </p>
+                ) : (
+                  <p className="text-[13px] font-medium text-[#a0a0a0] truncate flex items-center gap-1.5">
+                    <span className="truncate">{getStatusText(lanyard)}</span>
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        </motion.div>
 
         {/* Footer */}
-        <footer className="text-[10px] font-medium tracking-widest uppercase text-white/20">
+        <motion.footer className="text-[10px] font-medium tracking-widest uppercase text-white/20" {...getAnimProps(0.4)}>
           © TheGT
-        </footer>
+        </motion.footer>
 
       </motion.main>
     </div>
@@ -730,18 +740,12 @@ export default function App() {
       </AnimatePresence>
 
       {/* Main Profile UI (Preloaded invisibly) */}
-      <motion.div 
+      <div 
         className="fixed inset-0 z-10 overflow-y-auto overflow-x-hidden flex flex-col"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ 
-          opacity: (stage === 'profile' && showUI) ? 1 : 0, 
-          y: (stage === 'profile' && showUI) ? 0 : 20 
-        }}
-        transition={{ duration: 1, ease: "easeOut" }}
         style={{ pointerEvents: (stage === 'profile' && showUI) ? 'auto' : 'none' }}
       >
-        <ProfileUI />
-      </motion.div>
+        <ProfileUI showUI={stage === 'profile' && showUI} />
+      </div>
     </>
   );
 }
