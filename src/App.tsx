@@ -624,7 +624,7 @@ function ProfileUI() {
   );
 }
 
-const PROFILE_FADE_IN_TIME = 3; // Configurable time in seconds before profile fades in
+const PROFILE_FADE_IN_TIME = 18; // Configurable time in seconds before profile fades in
 
 export default function App() {
   const [stage, setStage] = useState<'gate' | 'transition' | 'profile'>('gate');
@@ -637,16 +637,12 @@ export default function App() {
     setStage('transition');
     
     if (videoRef.current) {
-      videoRef.current.play().catch(e => console.error(e));
-      videoRef.current.pause();
+      videoRef.current.currentTime = 0;
+      videoRef.current.play().catch(e => console.error("Video play failed:", e));
     }
 
     setTimeout(() => {
       setStage('profile');
-      if (videoRef.current) {
-        videoRef.current.currentTime = 0;
-        videoRef.current.play();
-      }
     }, 1500);
   };
 
@@ -669,7 +665,6 @@ export default function App() {
             ref={videoRef}
             src="https://cdn.jsdelivr.net/gh/angel2rider/profile@main/main.mp4" 
             className="w-full h-full object-cover"
-            muted
             playsInline
             preload="auto"
             onTimeUpdate={handleTimeUpdate}
