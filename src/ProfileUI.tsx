@@ -237,7 +237,7 @@ function RotatingQuote() {
   }, []);
 
   return (
-    <div className="h-24 flex items-center justify-center w-full max-w-[90%] mt-1">
+    <div className="min-h-[60px] flex items-center justify-center w-full max-w-[90%] mt-2">
       <AnimatePresence mode="wait">
         {quote ? (
           <motion.div
@@ -246,12 +246,12 @@ function RotatingQuote() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -5 }}
             transition={{ duration: 0.5 }}
-            className="flex flex-col items-center gap-1"
+            className="flex flex-col items-center justify-center gap-1 text-center"
           >
-            <p className="text-sm text-white/80 font-medium italic text-center line-clamp-3">
+            <p className="text-sm text-white/80 font-medium italic text-center line-clamp-3 leading-snug">
               "{quote.quote}"
             </p>
-            <p className="text-[10px] text-white/40 font-semibold uppercase tracking-widest">
+            <p className="text-[10px] text-white/40 font-semibold uppercase tracking-widest mt-1">
               — {quote.author}
             </p>
           </motion.div>
@@ -261,12 +261,47 @@ function RotatingQuote() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="text-sm text-white/40 font-medium"
+            className="text-sm text-white/40 font-medium text-center"
           >
             Loading quote...
           </motion.div>
         )}
       </AnimatePresence>
+    </div>
+  );
+}
+
+// --- Fireflies Component ---
+function Fireflies() {
+  return (
+    <div className="absolute inset-0 pointer-events-none flex items-center justify-center z-0">
+      {[...Array(15)].map((_, i) => {
+        const randomX = (Math.random() - 0.5) * 250;
+        const randomY = (Math.random() - 0.5) * 100;
+        const randomDuration = Math.random() * 4 + 3;
+        const randomDelay = Math.random() * -5;
+        return (
+          <motion.div
+            key={i}
+            className="absolute w-1 h-1 bg-[#eab308] rounded-full"
+            style={{
+              boxShadow: '0 0 8px 2px rgba(234, 179, 8, 0.6)'
+            }}
+            animate={{
+              x: [randomX, randomX + (Math.random() - 0.5) * 50, randomX],
+              y: [randomY, randomY + (Math.random() - 0.5) * 50, randomY],
+              opacity: [0, 0.8, 0],
+              scale: [0, 1, 0]
+            }}
+            transition={{
+              duration: randomDuration,
+              repeat: Infinity,
+              ease: "easeInOut",
+              delay: randomDelay
+            }}
+          />
+        );
+      })}
     </div>
   );
 }
@@ -314,59 +349,75 @@ export default function ProfileUI({ showUI }: { showUI: boolean }) {
       style={{ perspective: 1000 }}
     >
       <motion.main 
-        className="w-full max-w-2xl flex flex-col items-center gap-12 z-10"
+        className="w-full max-w-2xl flex flex-col items-center justify-center gap-10 z-10"
         style={{ rotateX, rotateY, transformStyle: 'preserve-3d' }}
       >
         {/* Header Section */}
         <div className="flex flex-col items-center gap-6 text-center" style={{ transform: 'translateZ(30px)' }}>
-          <motion.div className="relative group" {...getAnimProps(0)}>
-            <div className="absolute -inset-1 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 rounded-full blur opacity-70 group-hover:opacity-100 transition duration-1000 group-hover:duration-200 animate-pulse" />
+          <motion.div className="relative group flex items-center justify-center w-32 h-32" {...getAnimProps(0)}>
             <img 
               src={lanyard?.discord_user.avatar ? `https://cdn.discordapp.com/avatars/${lanyard.discord_user.id}/${lanyard.discord_user.avatar}.png?size=256` : "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=256&auto=format&fit=crop"}
               alt="Profile" 
-              className="relative w-32 h-32 rounded-full object-cover border-2 border-white/20 shadow-2xl"
+              className="relative w-32 h-32 rounded-full object-cover border-2 border-white/20 shadow-2xl z-10"
               referrerPolicy="no-referrer"
             />
+            {lanyard?.discord_user.avatar_decoration_data && (
+              <img 
+                src={`https://cdn.discordapp.com/avatar-decoration-presets/${lanyard.discord_user.avatar_decoration_data.asset}.png?size=256&passthrough=true`}
+                alt="Avatar Decoration"
+                className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120%] h-[120%] max-w-none object-cover pointer-events-none z-20"
+              />
+            )}
           </motion.div>
           
-          <motion.div className="flex flex-col items-center gap-2" {...getAnimProps(0.1)}>
-            <h1 className="text-4xl font-bold tracking-tight text-white drop-shadow-lg">
+          <motion.div className="relative flex flex-col items-center justify-center gap-2 w-full" {...getAnimProps(0.1)}>
+            <Fireflies />
+            <h1 className="text-4xl font-bold tracking-tight text-white drop-shadow-lg relative z-10">
               {lanyard?.discord_user.global_name || 'TheGT'}
             </h1>
-            <RotatingQuote />
+            <div className="relative z-10 w-full flex justify-center">
+              <RotatingQuote />
+            </div>
           </motion.div>
         </div>
 
         {/* Discord Card */}
         <motion.div 
-          className="w-full max-w-md bg-[#111214]/80 backdrop-blur-xl rounded-[24px] p-4 border border-white/10 shadow-2xl relative overflow-hidden group"
+          className="w-full max-w-md bg-[#111214]/80 backdrop-blur-xl rounded-[24px] p-5 border border-white/10 shadow-2xl relative overflow-hidden group"
           {...getAnimProps(0.3)}
           style={{ transform: 'translateZ(20px)' }}
         >
           <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
           
-          <div className="flex items-center gap-4 relative z-10">
-            <div className="relative shrink-0">
+          <div className="flex items-center gap-5 relative z-10">
+            <div className="relative shrink-0 flex items-center justify-center w-16 h-16">
               <img 
                 src={lanyard?.discord_user.avatar ? `https://cdn.discordapp.com/avatars/${lanyard.discord_user.id}/${lanyard.discord_user.avatar}.png?size=128` : "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=128&auto=format&fit=crop"}
                 alt="Discord Avatar" 
-                className="w-16 h-16 rounded-full object-cover border border-white/10"
+                className="w-16 h-16 rounded-full object-cover border border-white/10 z-10"
                 referrerPolicy="no-referrer"
               />
-              <div className={`absolute bottom-0 right-0 w-4 h-4 rounded-full border-2 border-[#111214] ${
+              {lanyard?.discord_user.avatar_decoration_data && (
+                <img 
+                  src={`https://cdn.discordapp.com/avatar-decoration-presets/${lanyard.discord_user.avatar_decoration_data.asset}.png?size=128&passthrough=true`}
+                  alt="Avatar Decoration"
+                  className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[125%] h-[125%] max-w-none object-cover pointer-events-none z-20"
+                />
+              )}
+              <div className={`absolute bottom-0 right-0 w-4 h-4 rounded-full border-2 border-[#111214] z-30 ${
                 lanyard?.discord_status === 'online' ? 'bg-[#23a559]' :
                 lanyard?.discord_status === 'idle' ? 'bg-[#f0b232]' :
                 lanyard?.discord_status === 'dnd' ? 'bg-[#f23f43]' : 'bg-[#80848e]'
               }`} />
             </div>
             
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center justify-between gap-2 mb-1">
-                <div className="flex items-baseline gap-2 truncate">
-                  <h2 className="text-lg font-bold text-white truncate">
+            <div className="flex-1 min-w-0 flex flex-col justify-center">
+              <div className="flex items-center justify-between gap-3 mb-1.5">
+                <div className="flex items-baseline gap-1.5 min-w-0">
+                  <h2 className="text-lg font-bold text-white truncate leading-none">
                     {lanyard?.discord_user.global_name || 'TheGT'}
                   </h2>
-                  <span className="text-sm font-medium text-[#b5bac1] truncate">
+                  <span className="text-sm font-medium text-[#b5bac1] truncate leading-none">
                     {lanyard?.discord_user.username || 'thegt2angel'}
                   </span>
                 </div>

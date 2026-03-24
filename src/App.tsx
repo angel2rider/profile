@@ -8,8 +8,65 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { Text3D, Center, Stars, Float } from '@react-three/drei';
 import * as THREE from 'three';
+import MusicDial, { VIDEOS, VideoItem } from './MusicDial';
 
 const ProfileUI = lazy(() => import('./ProfileUI'));
+
+// --- Helper to render video backgrounds ---
+const BackgroundVideo = React.forwardRef<HTMLVideoElement, { src: string, hue: number, isIntro?: boolean, isMuted?: boolean, onTimeUpdate?: any, onEnded?: any }>(
+  ({ src, hue, isIntro, isMuted = true, onTimeUpdate, onEnded }, ref) => {
+    const isYouTube = src.includes('youtube.com') || src.includes('youtu.be');
+    const isVimeo = src.includes('vimeo.com');
+
+    if (isYouTube) {
+      // Extract video ID
+      let videoId = '';
+      if (src.includes('youtu.be/')) videoId = src.split('youtu.be/')[1].split('?')[0];
+      else if (src.includes('v=')) videoId = src.split('v=')[1].split('&')[0];
+
+      return (
+        <div className="absolute inset-0 w-full h-full pointer-events-none" style={{ filter: isIntro ? 'none' : `hue-rotate(${hue}deg)` }}>
+          <iframe
+            src={`https://www.youtube.com/embed/${videoId}?autoplay=1&mute=${isMuted ? 1 : 0}&controls=0&showinfo=0&rel=0&loop=${isIntro ? 0 : 1}&playlist=${videoId}&modestbranding=1&playsinline=1`}
+            className="absolute top-1/2 left-1/2 w-[300vw] h-[300vh] -translate-x-1/2 -translate-y-1/2 sm:w-[150vw] sm:h-[150vh]"
+            allow="autoplay; encrypted-media"
+            style={{ border: 'none' }}
+          />
+        </div>
+      );
+    }
+
+    if (isVimeo) {
+      const videoId = src.split('vimeo.com/')[1].split('?')[0];
+      return (
+        <div className="absolute inset-0 w-full h-full pointer-events-none" style={{ filter: isIntro ? 'none' : `hue-rotate(${hue}deg)` }}>
+          <iframe
+            src={`https://player.vimeo.com/video/${videoId}?background=1&autoplay=1&loop=${isIntro ? 0 : 1}&byline=0&title=0&muted=${isMuted ? 1 : 0}`}
+            className="absolute top-1/2 left-1/2 w-[300vw] h-[300vh] -translate-x-1/2 -translate-y-1/2 sm:w-[150vw] sm:h-[150vh]"
+            allow="autoplay; fullscreen; picture-in-picture"
+            style={{ border: 'none' }}
+          />
+        </div>
+      );
+    }
+
+    // Fallback to standard HTML5 video
+    return (
+      <video 
+        ref={ref}
+        src={src} 
+        className="absolute inset-0 w-full h-full object-cover"
+        style={{ filter: isIntro ? 'none' : `hue-rotate(${hue}deg)` }}
+        muted={isMuted}
+        playsInline
+        autoPlay
+        loop={!isIntro}
+        onTimeUpdate={onTimeUpdate}
+        onEnded={onEnded}
+      />
+    );
+  }
+);
 
 // --- Intro Gate Components ---
 function GateScene({ isTransitioning }: { isTransitioning: boolean }) {
@@ -99,15 +156,20 @@ export default function App() {
   const [showUI, setShowUI] = useState(false);
   const [videoEnded, setVideoEnded] = useState(false);
   const [showGreatnessText, setShowGreatnessText] = useState(false);
+  const [activeVideo, setActiveVideo] = useState<VideoItem>(VIDEOS[0]);
+  const [playingIntro, setPlayingIntro] = useState(true);
 
   useEffect(() => {
     let intervalId: NodeJS.Timeout;
 
     const updateGlow = () => {
-      if (videoRef.current && glowCanvasRef.current && !videoRef.current.paused && !videoRef.current.ended) {
+      // Find the active video element (could be multiple during crossfade, we want the one currently playing)
+      const videoEl = document.querySelector('video');
+      if (videoEl && glowCanvasRef.current && !videoEl.paused && !videoEl.ended) {
         const ctx = glowCanvasRef.current.getContext('2d');
         if (ctx) {
-          ctx.drawImage(videoRef.current, 0, 0, 64, 64);
+          ctx.filter = videoEl.style.filter || 'none';
+          ctx.drawImage(videoEl, 0, 0, 64, 64);
         }
       }
     };
@@ -152,15 +214,25 @@ export default function App() {
     }, 6000);
   };
 
-  const handleTimeUpdate = () => {
-    if (videoRef.current && videoRef.current.currentTime > PROFILE_FADE_IN_TIME) {
+  const handleTimeUpdate = (e: React.SyntheticEvent<HTMLVideoElement>) => {
+    if (e.currentTarget.currentTime > PROFILE_FADE_IN_TIME) {
       setShowUI(true);
     }
   };
 
   const handleVideoEnded = () => {
-    setVideoEnded(true);
+    // If we want to loop, we can just let it loop. But if we want it to end:
+    // setVideoEnded(true);
   };
+
+  const handleVideoSelect = (video: VideoItem) => {
+    setPlayingIntro(false);
+    setActiveVideo(video);
+    setVideoEnded(false);
+  };
+
+  const currentSrc = playingIntro ? '/main.mp4' : activeVideo.src;
+  const currentKey = playingIntro ? 'intro' : activeVideo.id;
 
   return (
     <div className="fixed inset-0 bg-[#050505] p-3 sm:p-6 md:p-8 flex items-center justify-center overflow-hidden">
@@ -169,26 +241,36 @@ export default function App() {
         ref={glowCanvasRef}
         width={64}
         height={64}
-        className="absolute inset-0 w-full h-full object-cover blur-[60px] sm:blur-[100px] opacity-60 scale-110 transition-opacity duration-1000"
+        className={`absolute inset-0 w-full h-full object-cover blur-[60px] sm:blur-[100px] scale-110 transition-opacity duration-1000 ${currentSrc !== '' && !videoEnded ? 'opacity-60' : 'opacity-0'}`}
       />
 
       {/* Main Frame */}
       <div className="relative w-full h-full rounded-[2rem] sm:rounded-[2.5rem] overflow-hidden bg-black z-10 shadow-2xl border border-white/10">
         
         {/* Background Video */}
-        <div className={`absolute inset-0 z-0 transition-opacity duration-1000 bg-black ${stage !== 'gate' ? 'opacity-100' : 'opacity-[0.01]'}`}>
-          {!videoEnded && (
-            <video 
-              ref={videoRef}
-              src="/main.mp4" 
-              className="w-full h-full object-cover"
-              muted
-              playsInline
-              preload="metadata"
-              onTimeUpdate={handleTimeUpdate}
-              onEnded={handleVideoEnded}
-            />
-          )}
+        <div className={`absolute inset-0 z-0 transition-opacity duration-1000 bg-black overflow-hidden ${stage !== 'gate' ? 'opacity-100' : 'opacity-[0.01]'}`}>
+          <AnimatePresence mode="popLayout">
+            {currentSrc !== '' && !videoEnded && (
+              <motion.div
+                key={currentKey}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 1.5, ease: "easeInOut" }}
+                className="absolute inset-0 w-full h-full"
+              >
+                <BackgroundVideo 
+                  ref={playingIntro ? videoRef : null}
+                  src={currentSrc}
+                  hue={activeVideo.hue}
+                  isIntro={playingIntro}
+                  isMuted={stage === 'gate'}
+                  onTimeUpdate={playingIntro ? handleTimeUpdate : undefined}
+                  onEnded={playingIntro ? () => setPlayingIntro(false) : undefined}
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
           {/* Pixelated Filter Overlay */}
           <div 
             className="absolute inset-0 pointer-events-none z-10"
@@ -267,6 +349,11 @@ export default function App() {
               <ProfileUI showUI={stage === 'profile' && showUI} />
             </Suspense>
           </div>
+        )}
+        
+        {/* Music Selection Dial */}
+        {stage === 'profile' && showUI && (
+          <MusicDial onSelect={handleVideoSelect} activeVideo={activeVideo} />
         )}
       </div>
     </div>
