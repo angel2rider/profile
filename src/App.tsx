@@ -9,7 +9,6 @@ import { Canvas, useFrame } from '@react-three/fiber';
 import { Text3D, Center, Stars, Float } from '@react-three/drei';
 import * as THREE from 'three';
 import MusicDial, { VIDEOS, VideoItem } from './MusicDial';
-import MusicDial, { VIDEOS, VideoItem } from './MusicDial';
 
 const ProfileUI = lazy(() => import('./ProfileUI'));
 
@@ -163,16 +162,11 @@ export default function App() {
     let intervalId: NodeJS.Timeout;
 
     const updateGlow = () => {
-      // Find the active video element (could be multiple during crossfade, we want the one currently playing)
-      const videoEl = document.querySelector('video');
-      if (videoEl && glowCanvasRef.current && !videoEl.paused && !videoEl.ended) {
-      // Find the active video element (could be multiple during crossfade, we want the one currently playing)
+      // Find the active video element
       const videoEl = document.querySelector('video');
       if (videoEl && glowCanvasRef.current && !videoEl.paused && !videoEl.ended) {
         const ctx = glowCanvasRef.current.getContext('2d');
         if (ctx) {
-          ctx.filter = videoEl.style.filter || 'none';
-          ctx.drawImage(videoEl, 0, 0, 64, 64);
           ctx.filter = videoEl.style.filter || 'none';
           ctx.drawImage(videoEl, 0, 0, 64, 64);
         }
@@ -228,8 +222,6 @@ export default function App() {
 
   const handleTimeUpdate = (e: React.SyntheticEvent<HTMLVideoElement>) => {
     if (e.currentTarget.currentTime > PROFILE_FADE_IN_TIME) {
-  const handleTimeUpdate = (e: React.SyntheticEvent<HTMLVideoElement>) => {
-    if (e.currentTarget.currentTime > PROFILE_FADE_IN_TIME) {
       setShowUI(true);
     }
   };
@@ -258,7 +250,6 @@ export default function App() {
         ref={glowCanvasRef}
         width={64}
         height={64}
-        className={`absolute inset-0 w-full h-full object-cover blur-[60px] sm:blur-[100px] scale-110 transition-opacity duration-1000 ${currentSrc !== '' && !videoEnded ? 'opacity-60' : 'opacity-0'}`}
         className={`absolute inset-0 w-full h-full object-cover blur-[60px] sm:blur-[100px] scale-110 transition-opacity duration-1000 ${currentSrc !== '' && !videoEnded ? 'opacity-60' : 'opacity-0'}`}
       />
 
@@ -367,11 +358,6 @@ export default function App() {
               <ProfileUI showUI={stage === 'profile' && showUI} />
             </Suspense>
           </div>
-        )}
-        
-        {/* Music Selection Dial */}
-        {stage === 'profile' && showUI && (
-          <MusicDial onSelect={handleVideoSelect} activeVideo={activeVideo} />
         )}
         
         {/* Music Selection Dial */}
