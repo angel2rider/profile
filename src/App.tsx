@@ -9,6 +9,8 @@ import { Canvas, useFrame } from '@react-three/fiber';
 import { Text3D, Center, Stars, Float } from '@react-three/drei';
 import * as THREE from 'three';
 import MusicDial, { VIDEOS, VideoItem } from './MusicDial';
+import LoadingScreen from './LoadingScreen';
+import AudioVisualizer, { connectAudioStream, initAudio } from './AudioVisualizer';
 
 const ProfileUI = lazy(() => import('./ProfileUI'));
 
@@ -20,10 +22,11 @@ interface BackgroundVideoProps {
   shouldLoop?: boolean;
   onTimeUpdate?: any;
   onEnded?: any;
+  onCanPlayThrough?: any;
 }
 
 const BackgroundVideo = React.forwardRef<HTMLVideoElement, BackgroundVideoProps>(
-  ({ src, isActive, isIntro, isMuted = true, shouldLoop = true, onTimeUpdate, onEnded }, externalRef) => {
+  ({ src, isActive, isIntro, isMuted = true, shouldLoop = true, onTimeUpdate, onEnded, onCanPlayThrough }, externalRef) => {
     const isYouTube = src.includes('youtube.com') || src.includes('youtu.be');
     const isVimeo = src.includes('vimeo.com');
     const internalRef = useRef<HTMLVideoElement>(null);
@@ -56,7 +59,7 @@ const BackgroundVideo = React.forwardRef<HTMLVideoElement, BackgroundVideoProps>
           return () => clearTimeout(timer);
         }
       }
-    }, [isActive, isYouTube, isVimeo]);
+    }, [isActive, isYouTube, isVimeo, src]);
 
     if (isYouTube && isActive) {
       let videoId = '';
@@ -102,6 +105,7 @@ const BackgroundVideo = React.forwardRef<HTMLVideoElement, BackgroundVideoProps>
         loop={shouldLoop}
         onTimeUpdate={onTimeUpdate}
         onEnded={onEnded}
+        onCanPlayThrough={onCanPlayThrough}
       />
     );
   }
@@ -197,14 +201,22 @@ export default function App() {
   const [showGreatnessText, setShowGreatnessText] = useState(false);
   const [activeVideo, setActiveVideo] = useState<VideoItem>(() => VIDEOS[Math.floor(Math.random() * VIDEOS.length)]);
   const [playingIntro, setPlayingIntro] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
+  const musicVideoRef = useRef<HTMLVideoElement>(null);
+
+  // Safety fallback for loading screen if video takes too long or triggers early
+  useEffect(() => {
+    const timer = setTimeout(() => setIsLoading(false), 5000);
+    return () => clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     let animationFrameId: number;
     let lastTime = 0;
 
     const updateGlow = (time: number) => {
-      // Update ~24 times per second to optimize mobile perf
-      if (time - lastTime > 40) {
+      // Update ~10 times per second to optimize mobile perf and limit GPU load
+      if (time - lastTime > 100) {
         // Query the video that is currently fading in or fully visible
         const videoEl = document.querySelector('video.opacity-100') as HTMLVideoElement;
         if (videoEl && glowCanvasRef.current && !videoEl.paused && !videoEl.ended) {
@@ -224,10 +236,18 @@ export default function App() {
     return () => cancelAnimationFrame(animationFrameId);
   }, []);
 
+  useEffect(() => {
+    // Automatically bind the music stream when the main background player mounts
+    if (musicVideoRef.current) {
+      connectAudioStream(musicVideoRef.current);
+    }
+  });
+
   const handleGateClick = () => {
     if (stage !== 'gate') return;
     setStage('transition');
     setShowGreatnessText(true);
+    setShowUI(false);
     
     // Robust fullscreen request with vendor prefixes
     const docEl = document.documentElement as any;
@@ -242,6 +262,9 @@ export default function App() {
     } catch (err) {
       console.error("Fullscreen API error:", err);
     }
+
+    // Must trigger during a trusted user event (onclick) to satisfy Safari/Chrome AutoPlay laws
+    initAudio(); 
 
     if (videoRef.current) {
       videoRef.current.muted = false;
@@ -289,6 +312,8 @@ export default function App() {
   const currentKey = playingIntro ? 'intro' : activeVideo.id;
 
   return (
+    <>
+    <LoadingScreen isLoading={isLoading} />
     <div className="fixed inset-0 bg-[#050505] p-3 sm:p-6 md:p-8 flex items-center justify-center">
       {/* Ambient Glow Canvas */}
       <canvas
@@ -312,17 +337,18 @@ export default function App() {
             shouldLoop={stage === 'gate'}
             onTimeUpdate={playingIntro ? handleTimeUpdate : undefined}
             onEnded={playingIntro ? handleVideoEnded : undefined}
+            onCanPlayThrough={() => setIsLoading(false)}
           />
-          {VIDEOS.map(video => (
+          {(!playingIntro || videoEnded) && (
             <BackgroundVideo 
-              key={video.id}
-              src={video.src}
-              isActive={!playingIntro && activeVideo.id === video.id && !videoEnded}
+              ref={musicVideoRef}
+              src={activeVideo.src}
+              isActive={true}
               isIntro={false}
               isMuted={false}
               shouldLoop={true}
             />
-          ))}
+          )}
           {/* Pixelated Filter Overlay */}
           <div 
             className="absolute inset-0 pointer-events-none z-10"
@@ -407,7 +433,23 @@ export default function App() {
         {stage === 'profile' && showUI && (
           <MusicDial onSelect={handleVideoSelect} activeVideo={activeVideo} />
         )}
+
+        {/* Full Width Audio Visualizer Wave */}
+        <AnimatePresence>
+          {stage === 'profile' && showUI && (!playingIntro || videoEnded) && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 1 }}
+              className="absolute bottom-0 left-0 w-full z-20 pointer-events-none"
+            >
+              <AudioVisualizer />
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
+    </>
   );
 }
