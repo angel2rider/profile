@@ -12,53 +12,93 @@ import MusicDial, { VIDEOS, VideoItem } from './MusicDial';
 
 const ProfileUI = lazy(() => import('./ProfileUI'));
 
-// --- Helper to render video backgrounds ---
-const BackgroundVideo = React.forwardRef<HTMLVideoElement, { src: string, isIntro?: boolean, isMuted?: boolean, shouldLoop?: boolean, onTimeUpdate?: any, onEnded?: any }>(
-  ({ src, isIntro, isMuted = true, shouldLoop = true, onTimeUpdate, onEnded }, ref) => {
+interface BackgroundVideoProps {
+  src: string;
+  isActive: boolean;
+  isIntro?: boolean;
+  isMuted?: boolean;
+  shouldLoop?: boolean;
+  onTimeUpdate?: any;
+  onEnded?: any;
+}
+
+const BackgroundVideo = React.forwardRef<HTMLVideoElement, BackgroundVideoProps>(
+  ({ src, isActive, isIntro, isMuted = true, shouldLoop = true, onTimeUpdate, onEnded }, externalRef) => {
     const isYouTube = src.includes('youtube.com') || src.includes('youtu.be');
     const isVimeo = src.includes('vimeo.com');
+    const internalRef = useRef<HTMLVideoElement>(null);
 
-    if (isYouTube) {
-      // Extract video ID
+    const setRefs = React.useCallback(
+      (node: HTMLVideoElement) => {
+        internalRef.current = node;
+        if (typeof externalRef === 'function') {
+          externalRef(node);
+        } else if (externalRef) {
+          (externalRef as React.MutableRefObject<HTMLVideoElement | null>).current = node;
+        }
+      },
+      [externalRef]
+    );
+
+    useEffect(() => {
+      const video = internalRef.current;
+      if (video && !isYouTube && !isVimeo) {
+        if (isActive) {
+          video.currentTime = 0;
+          video.play().catch(e => {
+            if (e.name !== 'AbortError') console.error("Video play error:", e);
+          });
+        } else {
+          // Pause slightly after fade-out to ensure smooth visual transition
+          const timer = setTimeout(() => {
+            if (internalRef.current) internalRef.current.pause();
+          }, 1500);
+          return () => clearTimeout(timer);
+        }
+      }
+    }, [isActive, isYouTube, isVimeo]);
+
+    if (isYouTube && isActive) {
       let videoId = '';
       if (src.includes('youtu.be/')) videoId = src.split('youtu.be/')[1].split('?')[0];
       else if (src.includes('v=')) videoId = src.split('v=')[1].split('&')[0];
-
       return (
-        <div className="absolute inset-0 w-full h-full pointer-events-none">
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 1.5 }} className="absolute inset-0 w-full h-full pointer-events-none">
           <iframe
             src={`https://www.youtube.com/embed/${videoId}?autoplay=1&mute=${isMuted ? 1 : 0}&controls=0&showinfo=0&rel=0&loop=${shouldLoop ? 1 : 0}&playlist=${videoId}&modestbranding=1&playsinline=1`}
             className="absolute top-1/2 left-1/2 w-[300vw] h-[300vh] -translate-x-1/2 -translate-y-1/2 sm:w-[150vw] sm:h-[150vh]"
             allow="autoplay; encrypted-media"
             style={{ border: 'none' }}
           />
-        </div>
+        </motion.div>
       );
     }
 
-    if (isVimeo) {
+    if (isVimeo && isActive) {
       const videoId = src.split('vimeo.com/')[1].split('?')[0];
       return (
-        <div className="absolute inset-0 w-full h-full pointer-events-none">
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 1.5 }} className="absolute inset-0 w-full h-full pointer-events-none">
           <iframe
             src={`https://player.vimeo.com/video/${videoId}?background=1&autoplay=1&loop=${shouldLoop ? 1 : 0}&byline=0&title=0&muted=${isMuted ? 1 : 0}`}
             className="absolute top-1/2 left-1/2 w-[300vw] h-[300vh] -translate-x-1/2 -translate-y-1/2 sm:w-[150vw] sm:h-[150vh]"
             allow="autoplay; fullscreen; picture-in-picture"
             style={{ border: 'none' }}
           />
-        </div>
+        </motion.div>
       );
     }
 
-    // Fallback to standard HTML5 video
+    if (isYouTube || isVimeo) return null;
+
+    // Fast HTML5 local Preloaded Video
     return (
       <video 
-        ref={ref}
-        src={src} 
-        className={`absolute inset-0 w-full h-full object-cover ${!isIntro ? 'scale-[1.35]' : 'scale-105'}`}
+        ref={setRefs}
+        src={src}
+        preload="auto"
+        className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-[1500ms] ease-in-out ${!isIntro ? 'scale-[1.35]' : 'scale-105'} ${isActive ? 'opacity-100 z-10' : 'opacity-0 z-0'}`}
         muted={isMuted}
         playsInline
-        autoPlay
         loop={shouldLoop}
         onTimeUpdate={onTimeUpdate}
         onEnded={onEnded}
@@ -159,24 +199,29 @@ export default function App() {
   const [playingIntro, setPlayingIntro] = useState(true);
 
   useEffect(() => {
-    let intervalId: NodeJS.Timeout;
+    let animationFrameId: number;
+    let lastTime = 0;
 
-    const updateGlow = () => {
-      // Find the active video element
-      const videoEl = document.querySelector('video');
-      if (videoEl && glowCanvasRef.current && !videoEl.paused && !videoEl.ended) {
-        const ctx = glowCanvasRef.current.getContext('2d');
-        if (ctx) {
-          ctx.filter = videoEl.style.filter || 'none';
-          ctx.drawImage(videoEl, 0, 0, 64, 64);
+    const updateGlow = (time: number) => {
+      // Update ~24 times per second to optimize mobile perf
+      if (time - lastTime > 40) {
+        // Query the video that is currently fading in or fully visible
+        const videoEl = document.querySelector('video.opacity-100') as HTMLVideoElement;
+        if (videoEl && glowCanvasRef.current && !videoEl.paused && !videoEl.ended) {
+          const ctx = glowCanvasRef.current.getContext('2d');
+          if (ctx) {
+            ctx.filter = videoEl.style.filter || 'none';
+            ctx.drawImage(videoEl, 0, 0, 64, 64);
+          }
         }
+        lastTime = time;
       }
+      animationFrameId = requestAnimationFrame(updateGlow);
     };
 
-    // ~15 updates per second
-    intervalId = setInterval(updateGlow, 66);
+    animationFrameId = requestAnimationFrame(updateGlow);
 
-    return () => clearInterval(intervalId);
+    return () => cancelAnimationFrame(animationFrameId);
   }, []);
 
   const handleGateClick = () => {
@@ -256,30 +301,28 @@ export default function App() {
       {/* Main Frame */}
       <div className="relative w-full h-full rounded-[2rem] sm:rounded-[2.5rem] bg-black z-10 shadow-2xl border border-white/10">
         
-        {/* Background Video */}
+        {/* Background Videos pre-mounted for instant load */}
         <div className={`absolute inset-0 z-0 transition-opacity duration-1000 bg-black overflow-hidden rounded-[2rem] sm:rounded-[2.5rem] ${stage !== 'gate' ? 'opacity-100' : 'opacity-[0.01]'}`}>
-          <AnimatePresence mode="popLayout">
-            {currentSrc !== '' && !videoEnded && (
-              <motion.div
-                key={currentKey}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 1.5, ease: "easeInOut" }}
-                className="absolute inset-0 w-full h-full"
-              >
-                <BackgroundVideo 
-                  ref={playingIntro ? videoRef : null}
-                  src={currentSrc}
-                  isIntro={playingIntro}
-                  isMuted={stage === 'gate'}
-                  shouldLoop={playingIntro ? stage === 'gate' : true}
-                  onTimeUpdate={playingIntro ? handleTimeUpdate : undefined}
-                  onEnded={playingIntro ? handleVideoEnded : undefined}
-                />
-              </motion.div>
-            )}
-          </AnimatePresence>
+          <BackgroundVideo 
+            ref={videoRef}
+            src="/main.mp4"
+            isActive={playingIntro && !videoEnded}
+            isIntro={true}
+            isMuted={stage === 'gate'}
+            shouldLoop={stage === 'gate'}
+            onTimeUpdate={playingIntro ? handleTimeUpdate : undefined}
+            onEnded={playingIntro ? handleVideoEnded : undefined}
+          />
+          {VIDEOS.map(video => (
+            <BackgroundVideo 
+              key={video.id}
+              src={video.src}
+              isActive={!playingIntro && activeVideo.id === video.id && !videoEnded}
+              isIntro={false}
+              isMuted={false}
+              shouldLoop={true}
+            />
+          ))}
           {/* Pixelated Filter Overlay */}
           <div 
             className="absolute inset-0 pointer-events-none z-10"
@@ -301,7 +344,7 @@ export default function App() {
               exit={{ opacity: 0 }}
               transition={{ duration: stage === 'transition' ? 1.5 : 0.5 }}
             >
-              <Canvas camera={{ position: [0, 0, 10], fov: 50 }}>
+              <Canvas dpr={[1, 2]} camera={{ position: [0, 0, 10], fov: 50 }}>
                 <ambientLight intensity={0.5} />
                 <pointLight position={[10, 10, 10]} intensity={1} />
                 <Suspense fallback={null}>

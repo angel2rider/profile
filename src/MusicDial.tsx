@@ -79,7 +79,7 @@ export default function MusicDial({ onSelect, activeVideo }: MusicDialProps) {
     const currentY = e.touches[0].clientY;
     const deltaY = touchY.current - currentY;
     touchY.current = currentY;
-    rotation.set(rotation.get() - deltaY * 0.8);
+    rotation.set(rotation.get() - deltaY * 0.5); // Smoother multiplier for mobile drag
   };
 
   useEffect(() => {
@@ -109,6 +109,7 @@ export default function MusicDial({ onSelect, activeVideo }: MusicDialProps) {
       onWheel={handleWheel}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
+      style={{ touchAction: 'none' }}
     >
       <motion.div 
         className="absolute top-1/2 right-0 rounded-full flex items-center justify-center bg-black/40 backdrop-blur-xl shadow-[0_0_50px_rgba(0,0,0,0.5)] border border-white/10"
