@@ -394,7 +394,7 @@ export default function App() {
         {/* Main Profile UI (Deferred until gate is clicked to optimize initial load) */}
         {stage !== 'gate' && (
           <div 
-            className="absolute inset-0 z-10 overflow-y-auto overflow-x-hidden flex flex-col rounded-[2rem] sm:rounded-[2.5rem]"
+            className="absolute inset-0 z-10 overflow-y-auto overflow-x-hidden no-scrollbar flex flex-col rounded-[2rem] sm:rounded-[2.5rem]"
             style={{ pointerEvents: (stage === 'profile' && showUI) ? 'auto' : 'none' }}
           >
             <Suspense fallback={null}>
