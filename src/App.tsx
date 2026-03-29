@@ -201,14 +201,25 @@ export default function App() {
   const [showGreatnessText, setShowGreatnessText] = useState(false);
   const [activeVideo, setActiveVideo] = useState<VideoItem>(() => VIDEOS[Math.floor(Math.random() * VIDEOS.length)]);
   const [playingIntro, setPlayingIntro] = useState(true);
-  const [isLoading, setIsLoading] = useState(true);
+  const [preloadStage, setPreloadStage] = useState<'main' | 'active' | 'all'>('main');
+  const isLoading = preloadStage === 'main';
   const musicVideoRef = useRef<HTMLVideoElement>(null);
 
   // Safety fallback for loading screen if video takes too long or triggers early
   useEffect(() => {
-    const timer = setTimeout(() => setIsLoading(false), 5000);
+    const timer = setTimeout(() => {
+      setPreloadStage(prev => prev === 'main' ? 'active' : prev);
+    }, 5000);
     return () => clearTimeout(timer);
   }, []);
+
+  const handleMainLoaded = () => {
+    setPreloadStage(prev => prev === 'main' ? 'active' : prev);
+  };
+
+  const handleActiveLoaded = () => {
+    setPreloadStage(prev => prev === 'active' ? 'all' : prev);
+  };
 
   useEffect(() => {
     let animationFrameId: number;
@@ -337,7 +348,7 @@ export default function App() {
             shouldLoop={stage === 'gate'}
             onTimeUpdate={playingIntro ? handleTimeUpdate : undefined}
             onEnded={playingIntro ? handleVideoEnded : undefined}
-            onCanPlayThrough={() => setIsLoading(false)}
+            onCanPlayThrough={handleMainLoaded}
           />
           {(!playingIntro || videoEnded) && (
             <BackgroundVideo 
@@ -349,6 +360,29 @@ export default function App() {
               shouldLoop={true}
             />
           )}
+
+          {/* Aggressive Network Saturator (Preloader Nodes) */}
+          <div style={{ display: 'none' }}>
+            {preloadStage !== 'main' && (
+              <video 
+                src={activeVideo.src} 
+                preload="auto" 
+                muted 
+                onCanPlayThrough={handleActiveLoaded} 
+              />
+            )}
+            {preloadStage === 'all' && VIDEOS.map(video => {
+              if (video.id === activeVideo.id) return null;
+              return (
+                <video 
+                  key={video.id} 
+                  src={video.src} 
+                  preload="auto" 
+                  muted 
+                />
+              );
+            })}
+          </div>
           {/* Pixelated Filter Overlay */}
           <div 
             className="absolute inset-0 pointer-events-none z-10"
