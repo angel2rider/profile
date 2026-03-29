@@ -275,7 +275,7 @@ function RotatingQuote() {
 function Fireflies() {
   return (
     <div className="absolute inset-0 pointer-events-none flex items-center justify-center z-0 overflow-hidden">
-      {[...Array(15)].map((_, i) => {
+      {[...Array(35)].map((_, i) => {
         const randomX = (Math.random() - 0.5) * 250;
         const randomY = (Math.random() - 0.5) * 100;
         const randomDuration = Math.random() * 4 + 3;
@@ -283,9 +283,9 @@ function Fireflies() {
         return (
           <motion.div
             key={i}
-            className="absolute w-1 h-1 bg-[#eab308] rounded-full"
+            className="absolute w-1 h-1 bg-white rounded-full"
             style={{
-              boxShadow: '0 0 8px 2px rgba(234, 179, 8, 0.6)'
+              boxShadow: '0 0 8px 2px rgba(255, 255, 255, 0.6)'
             }}
             animate={{
               x: [randomX, randomX + (Math.random() - 0.5) * 50, randomX],
