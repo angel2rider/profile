@@ -1,0 +1,35 @@
+# Cloudflare Pages HTTP Headers
+
+# HTML - always revalidate
+/*.html
+  Cache-Control: no-cache, no-store, must-revalidate
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: SAMEORIGIN
+  Referrer-Policy: strict-origin-when-cross-origin
+
+# Root HTML document
+/
+  Cache-Control: no-cache, no-store, must-revalidate
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: SAMEORIGIN
+  Referrer-Policy: strict-origin-when-cross-origin
+  Content-Security-Policy: default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https://fonts.googleapis.com https://fonts.gstatic.com https://cdn.discordapp.com https://api.lanyard.rest https://raw.githubusercontent.com; img-src 'self' data: https://cdn.discordapp.com; media-src 'self' blob:
+
+# Hashed JS/CSS assets — safe to cache forever (Vite adds content hash to filename)
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+  X-Content-Type-Options: nosniff
+
+# Videos — cache for 7 days
+/*.mp4
+  Cache-Control: public, max-age=604800, stale-while-revalidate=86400
+
+# Fonts and images
+/*.woff2
+  Cache-Control: public, max-age=31536000, immutable
+*.png
+  Cache-Control: public, max-age=86400
+*.ico
+  Cache-Control: public, max-age=86400
+*.webmanifest
+  Cache-Control: public, max-age=86400
