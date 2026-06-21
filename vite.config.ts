@@ -18,7 +18,7 @@ export default defineConfig(({mode}) => {
     build: {
       modulePreload: false,
       sourcemap: true,
-      minify: 'terser',
+      minify: true,
       cssCodeSplit: true,
       rollupOptions: {
         output: {

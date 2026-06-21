@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useRef, Suspense, lazy } from 'react';
+import React, { useState, useEffect, useRef, Suspense, lazy, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import MusicDial, { VIDEOS, VideoItem } from './MusicDial';
 import LoadingScreen from './LoadingScreen';
@@ -96,7 +96,7 @@ const BackgroundVideo = React.forwardRef<HTMLVideoElement, BackgroundVideoProps>
       <video 
         ref={setRefs}
         src={src}
-        preload={isIntro ? "metadata" : "auto"}
+        preload="auto"
         className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-[1500ms] ease-in-out ${!isIntro ? 'scale-[1.35]' : 'scale-105'} ${isActive ? 'opacity-100 z-10' : 'opacity-0 z-0'}`}
         muted={isMuted}
         playsInline
@@ -139,22 +139,27 @@ export default function App() {
     return () => clearTimeout(timer);
   }, []);
 
-  const handleMainLoaded = () => {
+  const handleMainLoaded = useCallback(() => {
     setPreloadStage(prev => prev === 'main' ? 'active' : prev);
-  };
+  }, []);
 
-  const handleActiveLoaded = () => {
+  const handleActiveLoaded = useCallback(() => {
     setPreloadStage(prev => prev === 'active' ? 'all' : prev);
-  };
+  }, []);
+
+  // Run only when a video is actually playing (not during gate or after video ends)
+  const currentSrc = playingIntro ? '/main.mp4' : activeVideo.src;
+  const currentKey = playingIntro ? 'intro' : activeVideo.id;
+  const shouldGlow = currentSrc !== '' && !videoEnded;
 
   useEffect(() => {
+    if (!shouldGlow) return;
+
     let animationFrameId: number;
     let lastTime = 0;
 
     const updateGlow = (time: number) => {
-      // Update ~10 times per second to optimize mobile perf and limit GPU load
       if (time - lastTime > 100) {
-        // Query the video that is currently fading in or fully visible
         const videoEl = document.querySelector('video.opacity-100') as HTMLVideoElement;
         if (videoEl && glowCanvasRef.current && !videoEl.paused && !videoEl.ended) {
           const ctx = glowCanvasRef.current.getContext('2d');
@@ -171,14 +176,14 @@ export default function App() {
     animationFrameId = requestAnimationFrame(updateGlow);
 
     return () => cancelAnimationFrame(animationFrameId);
-  }, []);
+  }, [shouldGlow]);
 
+  // Bind audio stream once when the music video element mounts
   useEffect(() => {
-    // Automatically bind the music stream when the main background player mounts
     if (musicVideoRef.current) {
       connectAudioStream(musicVideoRef.current);
     }
-  });
+  }, []);
 
   const handleGateClick = () => {
     if (stage !== 'gate') return;
@@ -245,9 +250,6 @@ export default function App() {
     setShowUI(true);
   };
 
-  const currentSrc = playingIntro ? '/main.mp4' : activeVideo.src;
-  const currentKey = playingIntro ? 'intro' : activeVideo.id;
-
   return (
     <>
     <LoadingScreen isLoading={isLoading} />
@@ -268,7 +270,7 @@ export default function App() {
           <BackgroundVideo 
             ref={videoRef}
             src="/main.mp4"
-            isActive={playingIntro && !videoEnded}
+            isActive={playingIntro && !videoEnded && stage !== 'gate'}
             isIntro={true}
             isMuted={stage === 'gate'}
             shouldLoop={stage === 'gate'}
@@ -287,7 +289,7 @@ export default function App() {
             />
           )}
 
-          {/* Aggressive Network Saturator (Preloader Nodes) */}
+          {/* Intelligent Preloader — only buffer neighboring videos */}
           <div style={{ display: 'none' }}>
             {preloadStage !== 'main' && (
               <video 
@@ -297,17 +299,15 @@ export default function App() {
                 onLoadedData={handleActiveLoaded} 
               />
             )}
-            {preloadStage === 'all' && VIDEOS.map(video => {
-              if (video.id === activeVideo.id) return null;
-              return (
-                <video 
-                  key={video.id} 
-                  src={video.src} 
-                  preload="auto" 
-                  muted 
-                />
-              );
-            })}
+            {preloadStage === 'all' && (() => {
+              const activeIdx = VIDEOS.findIndex(v => v.id === activeVideo.id);
+              const nextIdx = (activeIdx + 1) % VIDEOS.length;
+              const prevIdx = (activeIdx - 1 + VIDEOS.length) % VIDEOS.length;
+              const toPreload = [VIDEOS[nextIdx], VIDEOS[prevIdx]];
+              return toPreload.map(video => (
+                <video key={video.id} src={video.src} preload="auto" muted />
+              ));
+            })()}
           </div>
           {/* Pixelated Filter Overlay */}
           <div 

@@ -64,6 +64,19 @@ export default function AudioVisualizer() {
       
       globalAnalyser.getByteTimeDomainData(dataArray);
 
+      // Skip drawing when audio is effectively silent to save GPU
+      let isSilent = true;
+      for (let i = 0; i < bufferLength; i++) {
+        if (Math.abs(dataArray[i] - 128) > 2) {
+          isSilent = false;
+          break;
+        }
+      }
+      if (isSilent) {
+        ctx.clearRect(0, 0, width, height);
+        return;
+      }
+
       // Fast clear
       ctx.clearRect(0, 0, width, height);
       
