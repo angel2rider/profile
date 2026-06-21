@@ -21,13 +21,26 @@ const YoutubeIcon = (props: React.SVGProps<SVGSVGElement>) => (
   </svg>
 );
 
-// --- Data ---
+// --- Constants ---
+const DISCORD_USER_ID = '1091039253988905110';
+
+const FALLBACK_AVATAR = 'data:image/svg+xml;base64,' + btoa(
+  '<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">' +
+  '<defs><linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">' +
+  '<stop offset="0%" style="stop-color:#6366f1"/>' +
+  '<stop offset="100%" style="stop-color:#8b5cf6"/>' +
+  '</linearGradient></defs>' +
+  '<rect width="256" height="256" fill="url(#g)"/>' +
+  '<text x="128" y="148" text-anchor="middle" font-family="Inter,sans-serif" font-size="96" font-weight="700" fill="white" opacity="0.9">GT</text>' +
+  '</svg>'
+);
+
 const SOCIAL_LINKS = [
-  { id: 'youtube', url: 'https://youtube.com/@clstocks4170', icon: YoutubeIcon },
-  { id: 'github', url: 'https://github.com/angel2rider', icon: Github },
-  { id: 'discord', url: 'https://discord.com/users/1091039253988905110', icon: DiscordIcon },
-  { id: 'x', url: 'https://x.com/TheGT2Angel', icon: XIcon },
-  { id: 'email', url: 'mailto:vivekpereiraalbert@gmail.com', icon: Mail },
+  { id: 'youtube', url: 'https://youtube.com/@clstocks4170', icon: YoutubeIcon, label: 'YouTube Channel' },
+  { id: 'github', url: 'https://github.com/angel2rider', icon: Github, label: 'GitHub Profile' },
+  { id: 'discord', url: 'https://discord.com/users/1091039253988905110', icon: DiscordIcon, label: 'Discord Profile' },
+  { id: 'x', url: 'https://x.com/TheGT2Angel', icon: XIcon, label: 'X (Twitter) Profile' },
+  { id: 'email', url: 'mailto:vivekpereiraalbert@gmail.com', icon: Mail, label: 'Send Email' },
 ];
 
 const DISCORD_BADGES: Record<number, { hash: string; name: string }> = {
@@ -176,6 +189,8 @@ function Dock({ children }: { children: React.ReactNode }) {
       onMouseMove={(e) => mouseX.set(e.pageX)}
       onMouseLeave={() => mouseX.set(Infinity)}
       className="flex items-end justify-center gap-3 h-16 px-4 pb-2.5 rounded-2xl bg-white/10 border border-white/20 shadow-[0_0_30px_rgba(0,0,0,0.3)] backdrop-blur-md"
+      role="navigation"
+      aria-label="Social links"
     >
       {React.Children.map(children, (child) => {
         if (React.isValidElement(child)) {
@@ -187,7 +202,7 @@ function Dock({ children }: { children: React.ReactNode }) {
   );
 }
 
-function DockItem({ mouseX, href, icon: Icon }: { mouseX?: any, href: string, icon: any, key?: string | number }) {
+function DockItem({ mouseX, href, icon: Icon, label }: { mouseX?: any, href: string, icon: any, label?: string, key?: string | number }) {
   const ref = useRef<HTMLAnchorElement>(null);
 
   const distance = useTransform(mouseX, (val: number) => {
@@ -206,8 +221,9 @@ function DockItem({ mouseX, href, icon: Icon }: { mouseX?: any, href: string, ic
       ref={ref}
       style={{ width, height: width }}
       className="flex items-center justify-center rounded-2xl bg-white/10 border border-white/20 text-white/60 hover:text-white hover:bg-white/20 transition-colors shadow-lg"
+      aria-label={label || href}
     >
-      <Icon className="w-1/2 h-1/2" />
+      <Icon className="w-1/2 h-1/2" aria-hidden="true" />
     </motion.a>
   );
 }
@@ -215,19 +231,28 @@ function DockItem({ mouseX, href, icon: Icon }: { mouseX?: any, href: string, ic
 // --- Rotating Quote Component ---
 function RotatingQuote() {
   const [quote, setQuote] = useState<{ quote: string; author: string } | null>(null);
+  const [failed, setFailed] = useState(false);
 
   useEffect(() => {
+    const apiKey = (typeof process !== 'undefined' && (process.env as any).VITE_QUOTES_API_KEY) || '';
+    if (!apiKey) {
+      setFailed(true);
+      return;
+    }
+
     const fetchQuote = async () => {
       try {
         const response = await fetch('https://api.api-ninjas.com/v1/quotes', {
-          headers: { 'X-Api-Key': 'KITv7/M2QEyfI4famv7fYg==eGlP3wSwgAMaOn9o' }
+          headers: { 'X-Api-Key': apiKey }
         });
         const data = await response.json();
         if (data && data.length > 0) {
           setQuote(data[0]);
+          setFailed(false);
         }
       } catch (error) {
         console.error('Error fetching quote:', error);
+        setFailed(true);
       }
     };
 
@@ -239,7 +264,17 @@ function RotatingQuote() {
   return (
     <div className="min-h-[60px] flex items-center justify-center w-full max-w-[90%] mt-2">
       <AnimatePresence mode="wait">
-        {quote ? (
+        {failed ? (
+          <motion.div
+            key="no-key"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="text-sm text-white/30 font-medium text-center italic"
+          >
+            Greatness lies within
+          </motion.div>
+        ) : quote ? (
           <motion.div
             key={quote.quote}
             initial={{ opacity: 0, y: 5 }}
@@ -287,7 +322,7 @@ const Fireflies = React.memo(function Fireflies() {
   }), []);
 
   return (
-    <div className="absolute inset-0 pointer-events-none flex items-center justify-center z-0 overflow-hidden">
+    <div className="absolute inset-0 pointer-events-none flex items-center justify-center z-0 overflow-hidden" aria-hidden="true">
       {particles.map((p, i) => (
         <motion.div
           key={i}
@@ -314,7 +349,7 @@ const Fireflies = React.memo(function Fireflies() {
 });
 
 export default function ProfileUI({ showUI }: { showUI: boolean }) {
-  const lanyard = useLanyard('1091039253988905110');
+  const lanyard = useLanyard(DISCORD_USER_ID);
   const customStatus = lanyard?.activities.find(a => a.type === 4);
   const activeBadges = lanyard?.discord_user.public_flags 
     ? Object.entries(DISCORD_BADGES)
@@ -363,8 +398,8 @@ export default function ProfileUI({ showUI }: { showUI: boolean }) {
         <div className="flex flex-col items-center gap-6 text-center" style={{ transform: 'translateZ(30px)' }}>
           <motion.div className="relative group flex items-center justify-center w-32 h-32" {...getAnimProps(0)}>
             <img 
-              src={lanyard?.discord_user.avatar ? `https://cdn.discordapp.com/avatars/${lanyard.discord_user.id}/${lanyard.discord_user.avatar}.png?size=256` : "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=256&auto=format&fit=crop"}
-              alt="Profile" 
+              src={lanyard?.discord_user.avatar ? `https://cdn.discordapp.com/avatars/${lanyard.discord_user.id}/${lanyard.discord_user.avatar}.png?size=256` : FALLBACK_AVATAR}
+              alt="TheGT's profile picture" 
               className="relative w-32 h-32 rounded-full object-cover border-2 border-white/20 shadow-2xl z-10"
               referrerPolicy="no-referrer"
             />
@@ -397,9 +432,9 @@ export default function ProfileUI({ showUI }: { showUI: boolean }) {
           <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
           
           <div className="flex items-center gap-5 relative z-10">
-            <div className="relative shrink-0 flex items-center justify-center w-16 h-16">
+            <div className="relative shrink-0 flex items-center justify-center w-16 h-16" role="img" aria-label="Discord avatar">
               <img 
-                src={lanyard?.discord_user.avatar ? `https://cdn.discordapp.com/avatars/${lanyard.discord_user.id}/${lanyard.discord_user.avatar}.png?size=128` : "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=128&auto=format&fit=crop"}
+                src={lanyard?.discord_user.avatar ? `https://cdn.discordapp.com/avatars/${lanyard.discord_user.id}/${lanyard.discord_user.avatar}.png?size=128` : FALLBACK_AVATAR}
                 alt="Discord Avatar" 
                 className="w-16 h-16 rounded-full object-cover border border-white/10 z-10"
                 referrerPolicy="no-referrer"
@@ -472,7 +507,7 @@ export default function ProfileUI({ showUI }: { showUI: boolean }) {
         <motion.div className="mb-16" {...getAnimProps(0.2)}>
           <Dock>
             {SOCIAL_LINKS.map((link) => (
-              <DockItem key={link.id} href={link.url} icon={link.icon} />
+              <DockItem key={link.id} href={link.url} icon={link.icon} label={link.label} />
             ))}
           </Dock>
         </motion.div>

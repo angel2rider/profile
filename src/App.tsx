@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import MusicDial, { VIDEOS, VideoItem } from './MusicDial';
 import LoadingScreen from './LoadingScreen';
 import AudioVisualizer, { connectAudioStream, initAudio } from './AudioVisualizer';
+import ErrorBoundary from './ErrorBoundary';
 
 const ProfileUI = lazy(() => import('./ProfileUI'));
 const GateSceneCanvas = lazy(() => import('./GateScene'));
@@ -117,6 +118,7 @@ const BackgroundVideo = React.forwardRef<HTMLVideoElement, BackgroundVideoProps>
 // --- Main App ---
 
 const PROFILE_FADE_IN_TIME = 18; // Configurable time in seconds before profile fades in
+const LOADING_SKIP_TIME = 8000; // If video hasn't loaded after 8s, show skip button
 
 export default function App() {
   const [stage, setStage] = useState<'gate' | 'transition' | 'profile'>('gate');
@@ -129,6 +131,7 @@ export default function App() {
   const [playingIntro, setPlayingIntro] = useState(true);
   const [preloadStage, setPreloadStage] = useState<'main' | 'active' | 'all'>('main');
   const isLoading = preloadStage === 'main';
+  const [showSkipButton, setShowSkipButton] = useState(false);
   const musicVideoRef = useRef<HTMLVideoElement>(null);
 
   // Safety fallback for loading screen if video takes too long or triggers early
@@ -137,6 +140,21 @@ export default function App() {
       setPreloadStage(prev => prev === 'main' ? 'active' : prev);
     }, 5000);
     return () => clearTimeout(timer);
+  }, []);
+
+  // Show skip button if loading screen persists beyond LOADING_SKIP_TIME
+  useEffect(() => {
+    if (!isLoading) {
+      setShowSkipButton(false);
+      return;
+    }
+    const timer = setTimeout(() => setShowSkipButton(true), LOADING_SKIP_TIME);
+    return () => clearTimeout(timer);
+  }, [isLoading]);
+
+  const handleSkipLoading = useCallback(() => {
+    setPreloadStage('all');
+    setShowSkipButton(false);
   }, []);
 
   const handleMainLoaded = useCallback(() => {
@@ -252,6 +270,15 @@ export default function App() {
 
   return (
     <>
+    {isLoading && showSkipButton && (
+      <button
+        onClick={handleSkipLoading}
+        className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[10000] px-8 py-3 rounded-full bg-white/10 border border-white/20 text-white/60 text-xs tracking-widest uppercase hover:bg-white/20 hover:text-white/80 transition-all backdrop-blur-md"
+        aria-label="Skip loading and enter now"
+      >
+        Skip &amp; Enter
+      </button>
+    )}
     <LoadingScreen isLoading={isLoading} />
     <div className="fixed inset-0 bg-[#050505] p-3 sm:p-6 md:p-8 flex items-center justify-center">
       {/* Ambient Glow Canvas */}
@@ -325,6 +352,10 @@ export default function App() {
             <motion.div 
               className="absolute inset-0 z-50 cursor-pointer flex items-center justify-center overflow-hidden rounded-[2rem] sm:rounded-[2.5rem]"
               onClick={handleGateClick}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleGateClick(); }}
+              role="button"
+              tabIndex={0}
+              aria-label="Enter the experience"
               initial={{ backgroundColor: 'rgba(0,0,0,1)' }}
               animate={{ backgroundColor: stage === 'transition' ? 'rgba(0,0,0,0)' : 'rgba(0,0,0,1)' }}
               exit={{ opacity: 0 }}
@@ -379,6 +410,7 @@ export default function App() {
 
         {/* Main Profile UI (Deferred until gate is clicked to optimize initial load) */}
         {stage !== 'gate' && (
+          <ErrorBoundary>
           <div 
             className="absolute inset-0 z-10 overflow-y-auto overflow-x-hidden no-scrollbar flex flex-col rounded-[2rem] sm:rounded-[2.5rem]"
             style={{ pointerEvents: (stage === 'profile' && showUI) ? 'auto' : 'none' }}
@@ -387,6 +419,7 @@ export default function App() {
               <ProfileUI showUI={stage === 'profile' && showUI} />
             </Suspense>
           </div>
+          </ErrorBoundary>
         )}
         
         {/* Music Selection Dial */}
