@@ -225,7 +225,7 @@ function Dock({ children }: { children: React.ReactNode }) {
     <motion.div
       onMouseMove={(e) => mouseX.set(e.pageX)}
       onMouseLeave={() => mouseX.set(Infinity)}
-      className="flex items-end justify-center gap-3 h-16 px-4 pb-2.5 rounded-2xl bg-white/10 border border-white/20 shadow-[0_0_30px_rgba(0,0,0,0.3)] backdrop-blur-md"
+      className="flex items-end justify-center gap-2 sm:gap-3 h-16 px-3 sm:px-4 pb-2.5 rounded-2xl bg-black/30 border border-white/20 shadow-[0_0_30px_rgba(0,0,0,0.4)] backdrop-blur-md origin-center max-[360px]:scale-[0.82]"
       role="navigation"
       aria-label="Social links"
     >
@@ -257,7 +257,7 @@ function DockItem({ mouseX, href, icon: Icon, label }: { mouseX?: any, href: str
       rel="noopener noreferrer"
       ref={ref}
       style={{ width, height: width }}
-      className="flex items-center justify-center rounded-2xl bg-white/10 border border-white/20 text-white/60 hover:text-white hover:bg-white/20 transition-colors shadow-lg"
+      className="flex items-center justify-center rounded-2xl bg-black/30 border border-white/20 text-white/75 hover:text-white hover:bg-white/20 transition-colors shadow-lg"
       aria-label={label || href}
     >
       <Icon className="w-1/2 h-1/2" aria-hidden="true" />
@@ -266,78 +266,73 @@ function DockItem({ mouseX, href, icon: Icon, label }: { mouseX?: any, href: str
 }
 
 // --- Rotating Quote Component ---
+const LOCAL_QUOTES = [
+  { quote: 'Greatness lies within', author: 'TheGT' },
+  { quote: "It's the small things that matter the most", author: 'TheGT' },
+  { quote: 'Step through the gate. Discover greatness.', author: 'TheGT' },
+  { quote: 'The future depends on what you do today.', author: 'Mahatma Gandhi' },
+  { quote: 'Success is not final, failure is not fatal.', author: 'Winston Churchill' },
+  { quote: 'Do what you can, with what you have, where you are.', author: 'Theodore Roosevelt' },
+];
+
 function RotatingQuote() {
-  const [quote, setQuote] = useState<{ quote: string; author: string } | null>(null);
-  const [failed, setFailed] = useState(false);
+  const [quote, setQuote] = useState<{ quote: string; author: string }>(
+    () => LOCAL_QUOTES[Math.floor(Math.random() * LOCAL_QUOTES.length)]
+  );
+  const apiKey = import.meta.env.VITE_QUOTES_API_KEY?.trim();
 
   useEffect(() => {
-    const apiKey = (typeof process !== 'undefined' && (process.env as any).VITE_QUOTES_API_KEY) || '';
     if (!apiKey) {
-      setFailed(true);
-      return;
+      const timer = setInterval(() => {
+        setQuote((prev) => {
+          const pool = LOCAL_QUOTES.filter((q) => q.quote !== prev.quote);
+          return pool[Math.floor(Math.random() * pool.length)];
+        });
+      }, 10000);
+      return () => clearInterval(timer);
     }
 
+    let cancelled = false;
     const fetchQuote = async () => {
       try {
         const response = await fetch('https://api.api-ninjas.com/v1/quotes', {
           headers: { 'X-Api-Key': apiKey }
         });
         const data = await response.json();
-        if (data && data.length > 0) {
+        if (!cancelled && Array.isArray(data) && data.length > 0) {
           setQuote(data[0]);
-          setFailed(false);
         }
       } catch (error) {
         console.error('Error fetching quote:', error);
-        setFailed(true);
       }
     };
 
     fetchQuote();
-    const interval = setInterval(fetchQuote, 10000);
-    return () => clearInterval(interval);
-  }, []);
+    const timer = setInterval(fetchQuote, 10000);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [apiKey]);
 
   return (
     <div className="min-h-[60px] flex items-center justify-center w-full max-w-[90%] mt-2">
       <AnimatePresence mode="wait">
-        {failed ? (
-          <motion.div
-            key="no-key"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="text-sm text-white/30 font-medium text-center italic"
-          >
-            Greatness lies within
-          </motion.div>
-        ) : quote ? (
-          <motion.div
-            key={quote.quote}
-            initial={{ opacity: 0, y: 5 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -5 }}
-            transition={{ duration: 0.5 }}
-            className="flex flex-col items-center justify-center gap-1 text-center"
-          >
-            <p className="text-sm text-white/80 font-medium italic text-center line-clamp-3 leading-snug">
-              "{quote.quote}"
-            </p>
-            <p className="text-[10px] text-white/40 font-semibold uppercase tracking-widest mt-1">
-              — {quote.author}
-            </p>
-          </motion.div>
-        ) : (
-          <motion.div
-            key="loading"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="text-sm text-white/40 font-medium text-center"
-          >
-            Loading quote...
-          </motion.div>
-        )}
+        <motion.div
+          key={quote.quote}
+          initial={{ opacity: 0, y: 5 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -5 }}
+          transition={{ duration: 0.5 }}
+          className="flex flex-col items-center justify-center gap-1 text-center [text-shadow:0_2px_10px_rgba(0,0,0,0.9)]"
+        >
+          <p className="text-sm text-white/85 font-medium italic text-center line-clamp-3 leading-snug">
+            "{quote.quote}"
+          </p>
+          <p className="text-[10px] text-white/55 font-semibold uppercase tracking-widest mt-1">
+            — {quote.author}
+          </p>
+        </motion.div>
       </AnimatePresence>
     </div>
   );
@@ -441,7 +436,7 @@ export default function ProfileUI({ showUI }: { showUI: boolean }) {
         style={{ rotateX, rotateY, transformStyle: 'preserve-3d' }}
       >
         {/* Header Section */}
-        <div className="flex flex-col items-center gap-6 text-center" style={{ transform: 'translateZ(30px)' }}>
+        <div className="w-full max-w-md flex flex-col items-center gap-6 text-center">
           <motion.div className="relative group flex items-center justify-center w-32 h-32" {...getAnimProps(0)}>
             <img 
               src={lanyard?.discord_user.avatar ? `https://cdn.discordapp.com/avatars/${lanyard.discord_user.id}/${lanyard.discord_user.avatar}.png?size=256` : FALLBACK_AVATAR}
@@ -458,20 +453,25 @@ export default function ProfileUI({ showUI }: { showUI: boolean }) {
             )}
           </motion.div>
           
-          <motion.div className="relative flex flex-col items-center justify-center gap-2 w-full" {...getAnimProps(0.1)}>
-            {nameplate && (
-              <img
-                src={`https://cdn.discordapp.com/assets/collectibles/${nameplate.asset}img.png?passthrough=true`}
-                alt={nameplate.label || 'Discord nameplate'}
-                title={nameplate.label || undefined}
-                className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-[420px] aspect-[16/3] object-cover opacity-60 pointer-events-none z-0"
-                style={{ maskImage: 'linear-gradient(to right, transparent, black 25%, black 75%, transparent)' }}
-              />
-            )}
+          <motion.div className="relative flex flex-col items-center justify-center gap-4 w-full" {...getAnimProps(0.1)}>
             <Fireflies />
-            <h1 className="text-4xl font-bold tracking-tight text-white drop-shadow-lg relative z-10">
-              {lanyard?.discord_user.global_name || 'TheGT'}
-            </h1>
+            <div className="relative w-full max-w-md aspect-[16/3] flex items-center justify-center overflow-hidden rounded-2xl max-[360px]:pr-[20%]">
+              {/* Discord's nameplate art is a transparent overlay meant to sit on a banner.
+                  A light base makes the gradient and the character read properly. */}
+              <div className="absolute inset-0 bg-gradient-to-r from-white/60 via-white/20 to-transparent" aria-hidden="true" />
+              {nameplate && (
+                <img
+                  src={`https://cdn.discordapp.com/assets/collectibles/${nameplate.asset}img.png?passthrough=true`}
+                  alt=""
+                  aria-hidden="true"
+                  className="absolute inset-0 w-full h-full object-cover object-right pointer-events-none select-none"
+                  referrerPolicy="no-referrer"
+                />
+              )}
+              <h1 className="relative z-10 text-4xl font-bold tracking-tight text-white drop-shadow-lg [text-shadow:0_2px_12px_rgba(0,0,0,0.9)]">
+                {lanyard?.discord_user.global_name || 'TheGT'}
+              </h1>
+            </div>
             <div className="relative z-10 w-full flex justify-center">
               <RotatingQuote />
             </div>
@@ -480,18 +480,18 @@ export default function ProfileUI({ showUI }: { showUI: boolean }) {
 
         {/* Discord Card */}
         <motion.div 
-          className="w-full max-w-md bg-[#111214]/80 backdrop-blur-xl rounded-[24px] p-5 border border-white/10 shadow-2xl relative overflow-hidden group"
+          className="w-full max-w-md bg-[#111214]/80 backdrop-blur-xl rounded-[24px] p-4 sm:p-5 border border-white/10 shadow-2xl relative overflow-hidden group"
           {...getAnimProps(0.3)}
           style={{ transform: 'translateZ(20px)' }}
         >
           <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-          
-          <div className="flex items-center gap-5 relative z-10">
-            <div className="relative shrink-0 flex items-center justify-center w-16 h-16" role="img" aria-label="Discord avatar">
+
+          <div className="flex items-center gap-3 sm:gap-5 relative z-10">
+            <div className="relative shrink-0 flex items-center justify-center w-14 h-14 sm:w-16 sm:h-16" role="img" aria-label="Discord avatar">
               <img 
                 src={lanyard?.discord_user.avatar ? `https://cdn.discordapp.com/avatars/${lanyard.discord_user.id}/${lanyard.discord_user.avatar}.png?size=128` : FALLBACK_AVATAR}
                 alt="Discord Avatar" 
-                className="w-16 h-16 rounded-full object-cover border border-white/10 z-10"
+                className="w-14 h-14 sm:w-16 sm:h-16 rounded-full object-cover border border-white/10 z-10"
                 referrerPolicy="no-referrer"
               />
               {avatarDecoration && (
@@ -509,12 +509,12 @@ export default function ProfileUI({ showUI }: { showUI: boolean }) {
             </div>
             
             <div className="flex-1 min-w-0 flex flex-col justify-center">
-              <div className="flex items-center justify-between gap-3 mb-1.5">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-2 mb-1.5">
                 <div className="flex items-baseline gap-1.5 min-w-0">
                   <h2 className="text-lg font-bold text-white truncate leading-none">
                     {lanyard?.discord_user.global_name || 'TheGT'}
                   </h2>
-                  <span className="text-sm font-medium text-[#b5bac1] truncate leading-none">
+                  <span className="hidden sm:inline text-sm font-medium text-[#b5bac1] truncate leading-none">
                     {lanyard?.discord_user.username || 'thegt2angel'}
                   </span>
                   {guild?.identity_enabled && guild.tag && guild.badge && (
@@ -531,7 +531,7 @@ export default function ProfileUI({ showUI }: { showUI: boolean }) {
                 </div>
 
                 {badges.length > 0 && (
-                  <div className="flex items-center gap-1 shrink-0 bg-[#1e1f22] px-2 py-1 rounded-md border border-white/5">
+                  <div className="ml-auto flex items-center gap-1 shrink-0 bg-[#1e1f22] px-2 py-1 rounded-md border border-white/5">
                     {badges.map((badge) => {
                       const src = badge.icon.startsWith('http')
                         ? badge.icon
@@ -591,7 +591,7 @@ export default function ProfileUI({ showUI }: { showUI: boolean }) {
         </motion.div>
 
         {/* Footer */}
-        <motion.footer className="text-[10px] font-medium tracking-widest uppercase text-white/20" {...getAnimProps(0.4)}>
+        <motion.footer className="text-[10px] font-medium tracking-widest uppercase text-white/40 [text-shadow:0_2px_8px_rgba(0,0,0,0.9)]" {...getAnimProps(0.4)}>
           © TheGT
         </motion.footer>
 

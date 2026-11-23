@@ -277,6 +277,9 @@ export default function App() {
               backgroundSize: '3px 3px'
             }}
           />
+
+          {/* Readability scrim over bright video frames */}
+          <div className="absolute inset-0 pointer-events-none z-10 bg-gradient-to-b from-black/40 via-black/25 to-black/55" />
         </div>
 
         {/* 3D Gate */}
