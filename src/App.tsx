@@ -5,7 +5,6 @@
 
 import React, { useState, useEffect, useRef, Suspense, lazy, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import MusicDial, { VIDEOS, VideoItem } from './MusicDial';
 import LoadingScreen from './LoadingScreen';
 import AudioVisualizer, { connectAudioStream, initAudio } from './AudioVisualizer';
 import ErrorBoundary from './ErrorBoundary';
@@ -94,7 +93,7 @@ const BackgroundVideo = React.forwardRef<HTMLVideoElement, BackgroundVideoProps>
 
     // Fast HTML5 local Preloaded Video
     return (
-      <video 
+      <video
         ref={setRefs}
         src={src}
         preload="auto"
@@ -112,7 +111,7 @@ const BackgroundVideo = React.forwardRef<HTMLVideoElement, BackgroundVideoProps>
   }
 );
 
-// --- Intro Gate Components --- 
+// --- Intro Gate Components ---
 // Extracted to src/GateScene.tsx
 
 // --- Main App ---
@@ -125,20 +124,13 @@ export default function App() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const glowCanvasRef = useRef<HTMLCanvasElement>(null);
   const [showUI, setShowUI] = useState(false);
-  const [videoEnded, setVideoEnded] = useState(false);
   const [showGreatnessText, setShowGreatnessText] = useState(false);
-  const [activeVideo, setActiveVideo] = useState<VideoItem>(() => VIDEOS[Math.floor(Math.random() * VIDEOS.length)]);
-  const [playingIntro, setPlayingIntro] = useState(true);
-  const [preloadStage, setPreloadStage] = useState<'main' | 'active' | 'all'>('main');
-  const isLoading = preloadStage === 'main';
+  const [isLoading, setIsLoading] = useState(true);
   const [showSkipButton, setShowSkipButton] = useState(false);
-  const musicVideoRef = useRef<HTMLVideoElement>(null);
 
   // Safety fallback for loading screen if video takes too long or triggers early
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setPreloadStage(prev => prev === 'main' ? 'active' : prev);
-    }, 5000);
+    const timer = setTimeout(() => setIsLoading(false), 5000);
     return () => clearTimeout(timer);
   }, []);
 
@@ -153,25 +145,17 @@ export default function App() {
   }, [isLoading]);
 
   const handleSkipLoading = useCallback(() => {
-    setPreloadStage('all');
+    setIsLoading(false);
     setShowSkipButton(false);
   }, []);
 
   const handleMainLoaded = useCallback(() => {
-    setPreloadStage(prev => prev === 'main' ? 'active' : prev);
+    setIsLoading(false);
   }, []);
 
-  const handleActiveLoaded = useCallback(() => {
-    setPreloadStage(prev => prev === 'active' ? 'all' : prev);
-  }, []);
-
-  // Run only when a video is actually playing (not during gate or after video ends)
-  const currentSrc = playingIntro ? '/main.mp4' : activeVideo.src;
-  const currentKey = playingIntro ? 'intro' : activeVideo.id;
-  const shouldGlow = currentSrc !== '' && !videoEnded;
-
+  // Run only when the intro video is actually playing (not during the gate)
   useEffect(() => {
-    if (!shouldGlow) return;
+    if (stage === 'gate') return;
 
     let animationFrameId: number;
     let lastTime = 0;
@@ -194,21 +178,14 @@ export default function App() {
     animationFrameId = requestAnimationFrame(updateGlow);
 
     return () => cancelAnimationFrame(animationFrameId);
-  }, [shouldGlow]);
-
-  // Bind audio stream once when the music video element mounts
-  useEffect(() => {
-    if (musicVideoRef.current) {
-      connectAudioStream(musicVideoRef.current);
-    }
-  }, []);
+  }, [stage]);
 
   const handleGateClick = () => {
     if (stage !== 'gate') return;
     setStage('transition');
     setShowGreatnessText(true);
     setShowUI(false);
-    
+
     // Robust fullscreen request with vendor prefixes
     const docEl = document.documentElement as any;
     try {
@@ -224,10 +201,12 @@ export default function App() {
     }
 
     // Must trigger during a trusted user event (onclick) to satisfy Safari/Chrome AutoPlay laws
-    initAudio(); 
+    initAudio();
 
     if (videoRef.current) {
       videoRef.current.muted = false;
+      // Route the intro video's audio into the visualizer after the user gesture
+      connectAudioStream(videoRef.current);
       videoRef.current.currentTime = 0;
       const playPromise = videoRef.current.play();
       if (playPromise !== undefined) {
@@ -255,16 +234,6 @@ export default function App() {
   };
 
   const handleVideoEnded = () => {
-    if (playingIntro) {
-      setPlayingIntro(false);
-      setShowUI(true);
-    }
-  };
-
-  const handleVideoSelect = (video: VideoItem) => {
-    setPlayingIntro(false);
-    setActiveVideo(video);
-    setVideoEnded(false);
     setShowUI(true);
   };
 
@@ -286,58 +255,28 @@ export default function App() {
         ref={glowCanvasRef}
         width={64}
         height={64}
-        className={`absolute inset-0 w-full h-full object-cover blur-[60px] sm:blur-[100px] scale-110 transition-opacity duration-1000 ${currentSrc !== '' && !videoEnded ? 'opacity-60' : 'opacity-0'}`}
+        className={`absolute inset-0 w-full h-full object-cover blur-[60px] sm:blur-[100px] scale-110 transition-opacity duration-1000 ${stage !== 'gate' ? 'opacity-60' : 'opacity-0'}`}
       />
 
       {/* Main Frame */}
       <div className="relative w-full h-full rounded-[2rem] sm:rounded-[2.5rem] bg-black z-10 shadow-2xl border border-white/10">
-        
-        {/* Background Videos pre-mounted for instant load */}
+
+        {/* Background Video — the intro cinematic is the only video */}
         <div className={`absolute inset-0 z-0 transition-opacity duration-1000 bg-black overflow-hidden rounded-[2rem] sm:rounded-[2.5rem] ${stage !== 'gate' ? 'opacity-100' : 'opacity-[0.01]'}`}>
-          <BackgroundVideo 
+          <BackgroundVideo
             ref={videoRef}
             src="/main.mp4"
-            isActive={playingIntro && !videoEnded && stage !== 'gate'}
+            isActive={stage !== 'gate'}
             isIntro={true}
             isMuted={stage === 'gate'}
             shouldLoop={stage === 'gate'}
-            onTimeUpdate={playingIntro ? handleTimeUpdate : undefined}
-            onEnded={playingIntro ? handleVideoEnded : undefined}
+            onTimeUpdate={handleTimeUpdate}
+            onEnded={handleVideoEnded}
             onLoadedData={handleMainLoaded}
           />
-          {(!playingIntro || videoEnded) && (
-            <BackgroundVideo 
-              ref={musicVideoRef}
-              src={activeVideo.src}
-              isActive={true}
-              isIntro={false}
-              isMuted={false}
-              shouldLoop={true}
-            />
-          )}
 
-          {/* Intelligent Preloader — only buffer neighboring videos */}
-          <div style={{ display: 'none' }}>
-            {preloadStage !== 'main' && (
-              <video 
-                src={activeVideo.src} 
-                preload="auto" 
-                muted 
-                onLoadedData={handleActiveLoaded} 
-              />
-            )}
-            {preloadStage === 'all' && (() => {
-              const activeIdx = VIDEOS.findIndex(v => v.id === activeVideo.id);
-              const nextIdx = (activeIdx + 1) % VIDEOS.length;
-              const prevIdx = (activeIdx - 1 + VIDEOS.length) % VIDEOS.length;
-              const toPreload = [VIDEOS[nextIdx], VIDEOS[prevIdx]];
-              return toPreload.map(video => (
-                <video key={video.id} src={video.src} preload="auto" muted />
-              ));
-            })()}
-          </div>
           {/* Pixelated Filter Overlay */}
-          <div 
+          <div
             className="absolute inset-0 pointer-events-none z-10"
             style={{
               backgroundImage: 'linear-gradient(transparent 50%, rgba(0, 0, 0, 0.15) 50%), linear-gradient(90deg, transparent 50%, rgba(0, 0, 0, 0.15) 50%)',
@@ -349,7 +288,7 @@ export default function App() {
         {/* 3D Gate */}
         <AnimatePresence>
           {stage !== 'profile' && (
-            <motion.div 
+            <motion.div
               className="absolute inset-0 z-50 cursor-pointer flex items-center justify-center overflow-hidden rounded-[2rem] sm:rounded-[2.5rem]"
               onClick={handleGateClick}
               onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleGateClick(); }}
@@ -368,9 +307,9 @@ export default function App() {
               }>
                 <GateSceneCanvas isTransitioning={stage === 'transition'} />
               </Suspense>
-              
+
               {/* Vignette overlay during transition */}
-              <motion.div 
+              <motion.div
                 className="absolute inset-0 pointer-events-none"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: stage === 'transition' ? 1 : 0 }}
@@ -378,9 +317,9 @@ export default function App() {
                   background: 'radial-gradient(circle, transparent 20%, rgba(0,0,0,1) 100%)'
                 }}
               />
-              
+
               {stage === 'gate' && (
-                <motion.div 
+                <motion.div
                   className="absolute bottom-10 text-white/50 text-sm tracking-widest uppercase font-medium"
                   animate={{ opacity: [0.3, 1, 0.3] }}
                   transition={{ duration: 2, repeat: Infinity }}
@@ -411,7 +350,7 @@ export default function App() {
         {/* Main Profile UI (Deferred until gate is clicked to optimize initial load) */}
         {stage !== 'gate' && (
           <ErrorBoundary>
-          <div 
+          <div
             className="absolute inset-0 z-10 overflow-y-auto overflow-x-hidden no-scrollbar flex flex-col rounded-[2rem] sm:rounded-[2.5rem]"
             style={{ pointerEvents: (stage === 'profile' && showUI) ? 'auto' : 'none' }}
           >
@@ -421,15 +360,10 @@ export default function App() {
           </div>
           </ErrorBoundary>
         )}
-        
-        {/* Music Selection Dial */}
-        {stage === 'profile' && showUI && (
-          <MusicDial onSelect={handleVideoSelect} activeVideo={activeVideo} />
-        )}
 
-        {/* Full Width Audio Visualizer Wave */}
+        {/* Full Width Audio Visualizer Wave (driven by the intro video's audio) */}
         <AnimatePresence>
-          {stage === 'profile' && showUI && (!playingIntro || videoEnded) && (
+          {stage === 'profile' && showUI && (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
