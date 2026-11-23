@@ -43,6 +43,8 @@ const SOCIAL_LINKS = [
   { id: 'email', url: 'mailto:vivekpereiraalbert@gmail.com', icon: Mail, label: 'Send Email' },
 ];
 
+// Fallback only: used when the live profile endpoint is unavailable.
+// The live endpoint also reports badges that aren't exposed via public_flags (e.g. quests).
 const DISCORD_BADGES: Record<number, { hash: string; name: string }> = {
   1: { hash: '5e74e9b61934fc1f67c65515d1f7e60d', name: 'Discord Staff' },
   2: { hash: '3f9748e53446a137a052f3454e2de41e', name: 'Partnered Server Owner' },
@@ -52,10 +54,45 @@ const DISCORD_BADGES: Record<number, { hash: string; name: string }> = {
   128: { hash: '011940fd013da3f7fb926e4a1cd2e618', name: 'HypeSquad Brilliance' },
   256: { hash: '3aa41de486fa12454c3761e8e223442e', name: 'HypeSquad Balance' },
   512: { hash: '7060786766c9c840eb3019e725d2b358', name: 'Early Supporter' },
-  16384: { hash: '848f79194d4be5ff5f81505cbc0a2802', name: 'Bug Hunter Level 2' },
-  131072: { hash: '6bdc42827a38498929a4920da12695d9', name: 'Early Verified Bot Developer' },
+  16384: { hash: '848f79194d4be5ff5f81505cbd0ce1e6', name: 'Bug Hunter Level 2' },
+  131072: { hash: '6df5892e0f35b051f8b61eace34f4967', name: 'Early Verified Bot Developer' },
+  262144: { hash: 'fee1624003e2fee35cb398e125dc479b', name: 'Moderator Programs Alumni' },
   4194304: { hash: '6bdc42827a38498929a4920da12695d9', name: 'Active Developer' },
 };
+
+interface ProfileBadge {
+  id: string;
+  description: string;
+  icon: string; // bare hash or a full URL
+  link?: string;
+}
+
+interface DiscordProfile {
+  user?: {
+    avatar_decoration_data?: { asset: string };
+    collectibles?: { nameplate?: { asset: string; palette: string; label: string } };
+    primary_guild?: { identity_guild_id: string; identity_enabled: boolean; tag: string; badge: string };
+  };
+  badges?: ProfileBadge[];
+}
+
+function useDiscordProfile(userId: string) {
+  const [profile, setProfile] = useState<DiscordProfile | null>(null);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch(`https://dcdn.dstn.to/profile/${userId}`, { signal: controller.signal })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: DiscordProfile | null) => setProfile(data))
+      .catch((err) => {
+        if (err.name !== 'AbortError') console.error('Error fetching Discord profile:', err);
+      });
+
+    return () => controller.abort();
+  }, [userId]);
+
+  return profile;
+}
 
 // --- Lanyard API Types & Hook ---
 interface LanyardData {
@@ -350,12 +387,21 @@ const Fireflies = React.memo(function Fireflies() {
 
 export default function ProfileUI({ showUI }: { showUI: boolean }) {
   const lanyard = useLanyard(DISCORD_USER_ID);
+  const profile = useDiscordProfile(DISCORD_USER_ID);
+  const profileUser = profile?.user;
   const customStatus = lanyard?.activities.find(a => a.type === 4);
-  const activeBadges = lanyard?.discord_user.public_flags 
+
+  // Badges come from the live profile endpoint; fall back to public_flags if it's down.
+  const fallbackBadges: ProfileBadge[] = lanyard?.discord_user.public_flags
     ? Object.entries(DISCORD_BADGES)
-        .filter(([flag]) => (lanyard.discord_user.public_flags! & parseInt(flag)) === parseInt(flag))
-        .map(([_, badge]) => badge)
+        .filter(([flag]) => (lanyard.discord_user.public_flags! & Number(flag)) === Number(flag))
+        .map(([_, badge]) => ({ id: badge.name, description: badge.name, icon: badge.hash }))
     : [];
+  const badges = profile?.badges?.length ? profile.badges : fallbackBadges;
+
+  const guild = profileUser?.primary_guild ?? lanyard?.discord_user.primary_guild;
+  const nameplate = profileUser?.collectibles?.nameplate;
+  const avatarDecoration = profileUser?.avatar_decoration_data?.asset ?? lanyard?.discord_user.avatar_decoration_data?.asset;
 
   const getAnimProps = (delay: number) => ({
     initial: { opacity: 0, y: 20, scale: 0.95 },
@@ -403,9 +449,9 @@ export default function ProfileUI({ showUI }: { showUI: boolean }) {
               className="relative w-32 h-32 rounded-full object-cover border-2 border-white/20 shadow-2xl z-10"
               referrerPolicy="no-referrer"
             />
-            {lanyard?.discord_user.avatar_decoration_data && (
-              <img 
-                src={`https://cdn.discordapp.com/avatar-decoration-presets/${lanyard.discord_user.avatar_decoration_data.asset}.png?size=256&passthrough=true`}
+            {avatarDecoration && (
+              <img
+                src={`https://cdn.discordapp.com/avatar-decoration-presets/${avatarDecoration}.png?size=256&passthrough=true`}
                 alt="Avatar Decoration"
                 className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120%] h-[120%] max-w-none object-cover pointer-events-none z-20"
               />
@@ -413,6 +459,15 @@ export default function ProfileUI({ showUI }: { showUI: boolean }) {
           </motion.div>
           
           <motion.div className="relative flex flex-col items-center justify-center gap-2 w-full" {...getAnimProps(0.1)}>
+            {nameplate && (
+              <img
+                src={`https://cdn.discordapp.com/assets/collectibles/${nameplate.asset}img.png?passthrough=true`}
+                alt={nameplate.label || 'Discord nameplate'}
+                title={nameplate.label || undefined}
+                className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-[420px] aspect-[16/3] object-cover opacity-60 pointer-events-none z-0"
+                style={{ maskImage: 'linear-gradient(to right, transparent, black 25%, black 75%, transparent)' }}
+              />
+            )}
             <Fireflies />
             <h1 className="text-4xl font-bold tracking-tight text-white drop-shadow-lg relative z-10">
               {lanyard?.discord_user.global_name || 'TheGT'}
@@ -439,9 +494,9 @@ export default function ProfileUI({ showUI }: { showUI: boolean }) {
                 className="w-16 h-16 rounded-full object-cover border border-white/10 z-10"
                 referrerPolicy="no-referrer"
               />
-              {lanyard?.discord_user.avatar_decoration_data && (
-                <img 
-                  src={`https://cdn.discordapp.com/avatar-decoration-presets/${lanyard.discord_user.avatar_decoration_data.asset}.png?size=128&passthrough=true`}
+              {avatarDecoration && (
+                <img
+                  src={`https://cdn.discordapp.com/avatar-decoration-presets/${avatarDecoration}.png?size=128&passthrough=true`}
                   alt="Avatar Decoration"
                   className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[125%] h-[125%] max-w-none object-cover pointer-events-none z-20"
                 />
@@ -462,19 +517,42 @@ export default function ProfileUI({ showUI }: { showUI: boolean }) {
                   <span className="text-sm font-medium text-[#b5bac1] truncate leading-none">
                     {lanyard?.discord_user.username || 'thegt2angel'}
                   </span>
-                </div>
-                
-                {activeBadges.length > 0 && (
-                  <div className="flex items-center gap-1 shrink-0 bg-[#1e1f22] px-2 py-1 rounded-md border border-white/5">
-                    {activeBadges.map((badge, i) => (
-                      <img 
-                        key={i}
-                        src={`https://cdn.discordapp.com/badge-icons/${badge.hash}.png`}
-                        alt={badge.name}
-                        title={badge.name}
-                        className="w-4 h-4"
+                  {guild?.identity_enabled && guild.tag && guild.badge && (
+                    <span className="inline-flex items-center gap-1 shrink-0 bg-[#1e1f22] px-1.5 py-0.5 rounded border border-white/5 leading-none" title={`${guild.tag} guild tag`}>
+                      <img
+                        src={`https://cdn.discordapp.com/guild-tag-badges/${guild.identity_guild_id}/${guild.badge}.png`}
+                        alt=""
+                        className="w-3.5 h-3.5"
+                        referrerPolicy="no-referrer"
                       />
-                    ))}
+                      <span className="text-[11px] font-bold text-[#b5bac1]">{guild.tag}</span>
+                    </span>
+                  )}
+                </div>
+
+                {badges.length > 0 && (
+                  <div className="flex items-center gap-1 shrink-0 bg-[#1e1f22] px-2 py-1 rounded-md border border-white/5">
+                    {badges.map((badge) => {
+                      const src = badge.icon.startsWith('http')
+                        ? badge.icon
+                        : `https://cdn.discordapp.com/badge-icons/${badge.icon}.png`;
+                      const icon = (
+                        <img
+                          src={src}
+                          alt={badge.description}
+                          title={badge.description}
+                          className="w-4 h-4"
+                          referrerPolicy="no-referrer"
+                        />
+                      );
+                      return badge.link ? (
+                        <a key={badge.id} href={badge.link} target="_blank" rel="noopener noreferrer" aria-label={badge.description}>
+                          {icon}
+                        </a>
+                      ) : (
+                        <React.Fragment key={badge.id}>{icon}</React.Fragment>
+                      );
+                    })}
                   </div>
                 )}
               </div>

@@ -6,7 +6,6 @@
 import React, { useState, useEffect, useRef, Suspense, lazy, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import LoadingScreen from './LoadingScreen';
-import AudioVisualizer, { connectAudioStream, initAudio } from './AudioVisualizer';
 import ErrorBoundary from './ErrorBoundary';
 
 const ProfileUI = lazy(() => import('./ProfileUI'));
@@ -200,13 +199,8 @@ export default function App() {
       console.error("Fullscreen API error:", err);
     }
 
-    // Must trigger during a trusted user event (onclick) to satisfy Safari/Chrome AutoPlay laws
-    initAudio();
-
     if (videoRef.current) {
       videoRef.current.muted = false;
-      // Route the intro video's audio into the visualizer after the user gesture
-      connectAudioStream(videoRef.current);
       videoRef.current.currentTime = 0;
       const playPromise = videoRef.current.play();
       if (playPromise !== undefined) {
@@ -360,21 +354,6 @@ export default function App() {
           </div>
           </ErrorBoundary>
         )}
-
-        {/* Full Width Audio Visualizer Wave (driven by the intro video's audio) */}
-        <AnimatePresence>
-          {stage === 'profile' && showUI && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 1 }}
-              className="absolute bottom-0 left-0 w-full z-20 pointer-events-none"
-            >
-              <AudioVisualizer />
-            </motion.div>
-          )}
-        </AnimatePresence>
       </div>
     </div>
     </>
