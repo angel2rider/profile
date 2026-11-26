@@ -29,6 +29,8 @@
   Content-Type: video/webm
 
 # Audio — cache aggressively; filenames change when the track changes
+/vice-city-radio.m4a
+  Cache-Control: public, max-age=31536000, immutable
 /vice-city-radio.opus
   Cache-Control: public, max-age=31536000, immutable
 /vice-city-radio.mp3

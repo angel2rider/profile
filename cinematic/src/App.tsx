@@ -146,8 +146,9 @@ export default function App() {
   return (
     <>
       <audio ref={audioRef} preload="auto">
-        <source src="/vice-city-radio.opus" type="audio/ogg" />
+        <source src="/vice-city-radio.m4a" type="audio/mp4" />
         <source src={AUDIO_SRC} type="audio/mpeg" />
+        <source src="/vice-city-radio.opus" type='audio/ogg; codecs="opus"' />
       </audio>
       <LoadingScreen isLoading={stage === 'loading'} />
 

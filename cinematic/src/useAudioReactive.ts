@@ -79,7 +79,10 @@ export function useAudioReactive() {
       audio.play().catch(() => {});
     }
 
-    if (!contextRef.current) {
+    // On touch devices, skip Web Audio routing — iOS Safari can suspend the
+    // context and silence the element. The visual envelopes still work.
+    const coarse = window.matchMedia?.('(pointer: coarse)').matches;
+    if (!contextRef.current && !coarse) {
       try {
         const Ctx = window.AudioContext || (window as any).webkitAudioContext;
         const context = new Ctx() as AudioContext;
@@ -158,7 +161,10 @@ export function useAudioReactive() {
 
   useEffect(() => {
     const onVisible = () => {
-      if (!document.hidden) syncNow();
+      if (!document.hidden) {
+        syncNow();
+        contextRef.current?.resume().catch(() => {});
+      }
     };
     document.addEventListener('visibilitychange', onVisible);
     return () => document.removeEventListener('visibilitychange', onVisible);
