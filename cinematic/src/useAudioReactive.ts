@@ -38,6 +38,24 @@ export function useAudioReactive() {
   const [startCount, setStartCount] = useState(0);
   const [reacting, setReacting] = useState(true);
 
+  // Apply the current audio time to the UI. Used by the frame loop and by
+  // visibilitychange so a backgrounded tab catches up in one shot.
+  const applyTimeline = (t: number) => {
+    setTime(t);
+    if (t >= REVEAL_TIME) {
+      setStage((prev) => (prev === 'gate' || prev === 'loading' ? 'intro' : prev));
+    }
+    if (t >= FULL_REVEAL_TIME) {
+      setStage((prev) => (prev === 'gate' || prev === 'loading' || prev === 'intro' ? 'full' : prev));
+    }
+  };
+
+  const syncNow = () => {
+    const audio = audioRef.current;
+    if (audio) applyTimeline(audio.currentTime);
+  };
+
+
   // Nothing plays until the visitor clicks/taps the page.
   const start = (force = false) => {
     if (startedRef.current && !force) return;
@@ -138,6 +156,14 @@ export function useAudioReactive() {
     };
   }, []);
 
+  useEffect(() => {
+    const onVisible = () => {
+      if (!document.hidden) syncNow();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, []);
+
   // The reactive loop: precomputed envelopes before the gesture, analyser after it.
   useEffect(() => {
     let frame = 0;
@@ -173,17 +199,10 @@ export function useAudioReactive() {
       // must land on the track's 7.5s swell even if the file is still buffering.
       const t = audio ? audio.currentTime : clockTime;
 
-      // Throttled time state for the countdown / HUD.
+      // Throttled state updates; visibilitychange calls applyTimeline directly.
       if (now - lastStateUpdate > 150) {
         lastStateUpdate = now;
-        setTime(t);
-      }
-
-      if (t >= REVEAL_TIME) {
-        setStage((prev) => (prev === 'gate' || prev === 'loading' ? 'intro' : prev));
-      }
-      if (t >= FULL_REVEAL_TIME) {
-        setStage((prev) => (prev === 'gate' || prev === 'loading' || prev === 'intro' ? 'full' : prev));
+        applyTimeline(t);
       }
 
       if (t >= REACTIVE_END) {
@@ -278,6 +297,7 @@ export function useAudioReactive() {
     reacting,
     showUI: stage === 'intro' || stage === 'full',
     phase: stage,
+    syncNow,
     countdown: Math.max(0, Math.ceil(REVEAL_TIME - time)),
     unmute: () => start(),
   };

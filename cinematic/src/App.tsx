@@ -15,7 +15,7 @@ const ProfileUI = lazy(() => import('./ProfileUI'));
 const GateSceneCanvas = lazy(() => import('./GateScene'));
 
 export default function App() {
-  const { audioRef, rootRef, stage, phase, soundOn, startCount, reacting, showUI, countdown, time, unmute } = useAudioReactive();
+  const { audioRef, rootRef, stage, phase, soundOn, startCount, reacting, showUI, countdown, time, unmute, syncNow } = useAudioReactive();
   const showingProfile = phase === 'intro' || phase === 'full';
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -96,6 +96,33 @@ export default function App() {
     const video = videoRef.current;
     if (video && time >= VIDEO_BLACK_AT && !video.paused) video.pause();
   }, [time]);
+
+  // Backgrounded tabs pause rAF; resume the film against the audio clock.
+  useEffect(() => {
+    const onVisibility = () => {
+      const video = videoRef.current;
+      const audio = audioRef.current;
+      if (!video || !audio) return;
+
+      if (document.hidden) {
+        if (!video.paused) video.pause();
+        return;
+      }
+
+      syncNow();
+      const t = audio.currentTime;
+      if (startCount > 0 && t < VIDEO_BLACK_AT) {
+        try {
+          video.currentTime = Math.min(t, Math.max(0, (video.duration || t) - 0.05));
+        } catch { /* seek not ready yet */ }
+        video.play().catch(() => {});
+      } else {
+        video.pause();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
+  }, [startCount, audioRef, syncNow]);
 
 
   return (
