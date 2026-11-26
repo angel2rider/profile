@@ -82,8 +82,17 @@ export default function App() {
       const video = videoRef.current;
       const audio = audioRef.current;
       if (video && audio && !video.paused && !audio.paused) {
-        if (Math.abs(video.currentTime - audio.currentTime) > 0.12) {
+        const drift = audio.currentTime - video.currentTime;
+        const seekable = video.seekable.length > 0 && video.seekable.end(video.seekable.length - 1) > 0;
+        if (seekable && Math.abs(drift) > 0.12) {
           try { video.currentTime = audio.currentTime; } catch { /* seek not ready */ }
+          video.playbackRate = 1;
+        } else if (!seekable && Math.abs(drift) > 0.08) {
+          // Cloudflare Pages serves no byte ranges, so the film cannot seek.
+          // Nudge playback rate instead of resetting the video to 0.
+          video.playbackRate = Math.max(0.9, Math.min(2, 1 + drift * 0.08));
+        } else {
+          video.playbackRate = 1;
         }
       }
       raf = requestAnimationFrame(tick);
@@ -105,16 +114,25 @@ export default function App() {
       if (!video || !audio) return;
 
       if (document.hidden) {
-        if (!video.paused) video.pause();
+        // Keep the muted film running with the audio; rAF simply pauses.
         return;
       }
 
       syncNow();
       const t = audio.currentTime;
       if (startCount > 0 && t < VIDEO_BLACK_AT) {
-        try {
-          video.currentTime = Math.min(t, Math.max(0, (video.duration || t) - 0.05));
-        } catch { /* seek not ready yet */ }
+        const seekable = video.seekable.length > 0 && video.seekable.end(video.seekable.length - 1) > 0;
+        if (seekable) {
+          try {
+            video.currentTime = Math.min(t, Math.max(0, (video.duration || t) - 0.05));
+          } catch { /* seek not ready yet */ }
+          video.playbackRate = 1;
+        } else {
+          const drift = t - video.currentTime;
+          video.playbackRate = Math.abs(drift) > 0.08
+            ? Math.max(0.9, Math.min(2, 1 + drift * 0.08))
+            : 1;
+        }
         video.play().catch(() => {});
       } else {
         video.pause();
