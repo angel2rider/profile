@@ -6,3 +6,9 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# Large local source media (not the optimized web assets)
+/Sequence 01.mp4
+/final.mp4
+/justice-flower-in-a-hurricane-ft-tame-impala-sza-king-gizzard-the-lizard-wi_XLW5eVKI.mp3
+/miami-sunset-artistic-fc.jpg
