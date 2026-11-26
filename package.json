@@ -10,8 +10,7 @@
     "clean": "rm -rf dist",
     "generate-preview": "node scripts/generate-preview.mjs",
     "lint": "tsc --noEmit",
-    "build:cinematic": "node scripts/build.mjs",
-    "build:original": "node scripts/build.mjs"
+    "dev:cinematic": "vite cinematic --port 3001"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.7",
